@@ -1,0 +1,58 @@
+;;; -*-lisp-*-
+
+;;; these are only for testing the algorithm
+(defun extract-host-level (host n) (nth n host))
+(defun lookup-network-obj (name) name)
+(defun gsiaih-return (a b) (cons a b))
+
+(setq *bridge-threshhold* 8)
+(defun doit (host) (get-sending-interface-and-immediate-host host))
+(defun get-sending-interface-and-immediate-host (host)
+  (do ((count *bridge-threshhold* (1- count))
+       (host host)
+       (current-bridge-table bridge-table)
+       (level 0)
+       (maybe)
+       (ans '()))       
+      ((progn (print host)
+	      (or ans (zerop count))) ans)
+    (setq maybe (or (assoc (extract-host-level host level) current-bridge-table)
+		    (assoc all-others[=0] current-bridge-table)))
+    (if (null maybe)
+	(setq ans (gsiaih-return 0 0))
+	(caseq (cadr maybe)
+	  (recurse (prin1 `(recursing on ,(nthcdr (1+ level) host)))
+		   (setq level (1+ level)
+			 current-bridge-table (caddr maybe)))
+	  (direct (prin1 maybe)
+		  (setq ans (gsiaih-return host (lookup-network-obj (caddr maybe)))))
+	  (bridge (prin1 maybe)
+		  (setq host (caddr maybe)
+			level 0
+			current-bridge-table bridge-table
+			)))))))
+
+(setq net-chaos 7
+      net-arpa  10.
+      net-lcs   18.
+      all-others[=0] 0)
+(setq csr-bridge[lcs-subnet-10] `(,net-lcs 10 0 5)
+      random[for-testing] '(1 4 3 2)
+      xx[lcs] `(,net-lcs 5 0 ??))
+
+(setq bridge-table
+      `((,net-CHAOS recurse ((0 recurse ((01 bridge ,csr-bridge[lcs-subnet-10])
+					 (02 bridge ,csr-bridge[lcs-subnet-10])
+					 (05 direct interface[xx-dte])
+					 (23 bridge ,random[for-testing])
+					 ))
+			     ))
+	(,net-ARPA bridge ,xx[lcs])
+	(,net-LCS recurse ((01 bridge ,csr-bridge[lcs-subnet-10])
+			   (02 bridge ,csr-bridge[lcs-subnet-10])
+			   (05 direct interface[xx-dte])
+			   (10 direct interface[subnet-10-LNI])
+			   (12 bridge ,csr-bridge[lcs-subnet-10])
+			   ))
+	(,all-others[=0] bridge ,xx[lcs])
+	))

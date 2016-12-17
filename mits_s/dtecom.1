@@ -1,0 +1,238 @@
+
+;COMPARISON OF PS:<DCP.MINITS.S>DTE.PALX.6 AND PS:<DCP.MINITS.S>FLADTE.PALX.1
+;OPTIONS ARE    /3
+
+**** FILE PS:<DCP.MINITS.S>DTE.PALX.6, 1-36 (1683)
+	..word $dtpty,0		;type field
+	  ..byte $dtpst,1	;  sub type
+	  ..byte $dtpmt,1	;  major type
+	    dttchs==0		;    CHAOS
+	    dttip==2		;    IP
+**** FILE PS:<DCP.MINITS.S>FLADTE.PALX.1, 1-37 (1685)
+	..word $dtpty,1		;DTE packet type (should be zero)
+***************
+
+**** FILE PS:<DCP.MINITS.S>DTE.PALX.6, 5-8 (5494)
+.iif ndf dtephx, dtephx==0	;assume not a phoenix DTE
+.iif ndf dtecpr, dtecpr==0	;assume CPR did not get his hand on the 20
+.iif nz dtecpr, .iif ndf dtewho, .error DTEWHO=={11, 20} not defined
+**** FILE PS:<DCP.MINITS.S>FLADTE.PALX.1, 5-8 (5400)
+.iif z netdte, .error DTE being included without support in PKTNCP
+***************
+
+**** FILE PS:<DCP.MINITS.S>DTE.PALX.6, 5-55 (6425)
+	.lif nz ncpchs
+$dtlct::	.blkw 1		;last chaos packet time
+**** FILE PS:<DCP.MINITS.S>FLADTE.PALX.1, 5-52 (6202)
+***************
+
+**** FILE PS:<DCP.MINITS.S>DTE.PALX.6, 8-20 (10112)
+	cmpb $dtpmt(r1),#dttchs
+	if eq,<
+	  tstb $dtpst(r1)	;subtype chaos packet?
+	  if eq,<
+	    mov time,$dtlct(r5)	;set last chaos packet time
+	    jcall chsrcv	;go receive chaos packet
+	    >
+	  cmpb $dtpst(r1),#1	;request for status?
+**** FILE PS:<DCP.MINITS.S>FLADTE.PALX.1, 8-20 (9829)
+	tstb $dtpty+1(r1)
+	if eq,<
+	  tstb $dtpty(r1)
+	  if eq,<jcall chsrcv>
+	  cmpb $dtpty(r1),#1	;request for status?
+***************
+
+**** FILE PS:<DCP.MINITS.S>DTE.PALX.6, 8-33 (10437)
+	cmpb $dtpmt(r1),#dttip
+	if eq,<jcall iprcv>
+**** FILE PS:<DCP.MINITS.S>FLADTE.PALX.1, 8-30 (10032)
+***************
+
+**** FILE PS:<DCP.MINITS.S>DTE.PALX.6, 10-47 (13134)
+	else <
+		.if nz ncpchs
+	  push $dtlct(r5)	;get last chaos packet time
+	  add #60.*60.,(sp)	;5 minutes after
+	  cmp time,(sp)+	;time passed yet?
+	  if pl,<		;yup, kick the 20
+	    mov time,$dtlct(r5)	;consider a chaos packet in as of now
+	    mov #$pktdt+6,r1	;6 bytes of packet data for info to 20
+	    call pktall		;get a packet
+	    if ne,<call dtchss>	;send him my status
+	    >
+		.endc
+	  >
+**** FILE PS:<DCP.MINITS.S>FLADTE.PALX.1, 10-47 (12682)
+***************
+
+**** FILE PS:<DCP.MINITS.S>DTE.PALX.6, 11-18 (14054)
+.if nz dtephx			;if a phoenix DTE
+**** FILE PS:<DCP.MINITS.S>FLADTE.PALX.1, 11-18 (13193)
+.if z 0				;flair/hp
+***************
+
+**** FILE PS:<DCP.MINITS.S>DTE.PALX.6, 11-36 (14385)
+.endc dtephx
+**** FILE PS:<DCP.MINITS.S>FLADTE.PALX.1, 11-36 (13511)
+.endc
+***************
+
+**** FILE PS:<DCP.MINITS.S>DTE.PALX.6, 11-48 (14701)
+	add dexwd3(r4),r1	;get to my area (add offset)
+	clr    tenad1(r4)
+	mov r1,tenad2(r4)	;read PIDENT word
+	  call dt$wed
+	  bcs dt$ini
+	cmp dexwd3(r4),dtvpnm	;make sure it is mine
+	bne dt$ini
+	mov r1,r2		;save it as my comm area (for examine)
+**** FILE PS:<DCP.MINITS.S>FLADTE.PALX.1, 11-48 (13820)
+	add dexwd3(r4),r1	;point to my area
+	mov r1,r2		;save it as my comm area (for examine)
+	clr    tenad1(r4)
+	mov r2,tenad2(r4)	;and examine my PIDENT
+	  call dt$wed
+	  bcs dt$ini
+***************
+
+**** FILE PS:<DCP.MINITS.S>DTE.PALX.6, 11-75 (15505)
+**** FILE PS:<DCP.MINITS.S>FLADTE.PALX.1, 11-73 (14559)
+mov dexwd1(r4),r2
+bic #mask2,r2
+ash #3,r2
+***************
+
+**** FILE PS:<DCP.MINITS.S>DTE.PALX.6, 11-86 (15784)
+**** FILE PS:<DCP.MINITS.S>FLADTE.PALX.1, 11-87 (14883)
+add r2,r1			;point to hopeful start of me
+***************
+
+**** FILE PS:<DCP.MINITS.S>DTE.PALX.6, 11-106 (16315)
+.iif nz dtephx, clr r0		;loop counter for phoenix DTE
+**** FILE PS:<DCP.MINITS.S>FLADTE.PALX.1, 11-108 (15457)
+.iif z 0, clr r0
+***************
+
+**** FILE PS:<DCP.MINITS.S>DTE.PALX.6, 11-110 (16425)
+.if z dtephx			;if not a phoenix
+	    call dt$dmw
+	    rptl
+.iff				;if a phoenix
+	    sorl r0		;loop counter
+	    jcall dt$ini
+.endc dtephx
+**** FILE PS:<DCP.MINITS.S>FLADTE.PALX.1, 11-112 (15530)
+.if z 0				;flair/hp
+	    sorl r0
+	    jcall dt$ini
+.iff
+	    call dt$dmw
+	    rptl
+.endc
+***************
+
+**** FILE PS:<DCP.MINITS.S>DTE.PALX.6, 11-127 (16913)
+.iif nz ncpchs, mov time,$dtlct(r5)	;fake a chaos packet in now
+**** FILE PS:<DCP.MINITS.S>FLADTE.PALX.1, 11-129 (15967)
+***************
+
+**** FILE PS:<DCP.MINITS.S>DTE.PALX.6, 12-50 (18088)
+	mov #dtipgv,nt$ip(r5)	;routine to send IP packet to interface
+	movb      #ipnlcs,nt.ip+1(r5)
+	movb dt$chs+1(r0),nt.ip+0(r5)
+	clrb              nt.ip+3(r5)
+	movb dt$chs+0(r0),nt.ip+2(r5)
+**** FILE PS:<DCP.MINITS.S>FLADTE.PALX.1, 12-50 (17077)
+***************
+
+**** FILE PS:<DCP.MINITS.S>DTE.PALX.6, 13-2 (18516)
+;;; ;;; jsr r0,dt..gv
+;;; ;;;   .word protocol
+dt..gv:	mov (r0)+,$dtpty(r1)	;set the type field
+	pop r0			;restore reg
+**** FILE PS:<DCP.MINITS.S>FLADTE.PALX.1, 13-2 (17313)
+.if nz ncpchs
+.wscalar dtvcap			;magic DTE CHAOS ack packet
+dtchma:				;make the ack packet
+	mov #$pktdt,r1		;no data, just existence
+	call pktall
+	if eq,<bpt>		;oops
+	mov r1,dtvcap
+	mov #<$pktdt-$dtpdt>,$pktxs(r1)	;just the header words
+	mov #<$pktdt-$dtpdt>/2,$dtpbc(r1)	;the byte(word) count
+	mov #3,$dtpty(r1)	;set the type to ACK
+	return
+;;; call @nt$chs(r5)[r5:=object, r1:=packet, r2:=hardware_destination(if_needed)]
+dtchgv:	call cpks16		;make packet safe for 16.bit hardware
+***************
+
+**** FILE PS:<DCP.MINITS.S>DTE.PALX.6, 13-12 (18831)
+**** FILE PS:<DCP.MINITS.S>FLADTE.PALX.1, 13-23 (18006)
+	clr 	       $dtpty(r1)
+***************
+
+**** FILE PS:<DCP.MINITS.S>DTE.PALX.6, 13-22 (18929)
+.if nz ncpchs
+.wscalar dtvcap			;magic DTE CHAOS ack packet
+dtchma:				;make the ack packet
+	mov #$pktdt,r1		;no data, just existence
+	call pktall
+	if eq,<bpt>		;oops
+	mov r1,dtvcap
+	mov #<$pktdt-$dtpdt>,$pktxs(r1)	;just the header words
+	mov #<$pktdt-$dtpdt>/2,$dtpbc(r1)	;the byte(word) count
+	mov #3,$dtpst(r1)	;set the type to ACK
+	return
+;;; call @nt$chs(r5)[r5:=object, r1:=packet, r2:=hardware_destination(if_needed)]
+dtchgv:	call cpks16		;make packet safe for 16.bit hardware
+	jsr r0,dt..gv
+	  .word dttchs_8
+;;; Request from 20 for status (only address important)
+dtchss:	movb #dttchs,$dtpmt(r1)	;major type is chaos
+	movb #2,$dtpst(r1)	;turn it into a HERE IS STATUS
+.if z dtecpr			;CPR didn't frob with 20
+**** FILE PS:<DCP.MINITS.S>FLADTE.PALX.1, 13-33 (18127)
+;;; Request from 20 for status (only address important)
+dtchss:	movb #2,$dtpty(r1)	;turn it into a HERE IS STATUS
+.if z 0				;flair/hp
+	mov     #4,$pktdt+0(r1)
+	clr        $pktdt+2(r1)	;value at the CSR (never gets looked at)
+	mov chvmyn,$pktdt+4(r1)	;my address
+	mov #10000,$pktdt+6(r1)	;I don't run out of buffers
+	mov #<$pktdt+8-$dtpdt>,$pktxs(r1)	;just the header words
+	mov #<$pktdt+8-$dtpdt>/2,$dtpbc(r1)	;the byte(word) count
+.iff	
+***************
+
+**** FILE PS:<DCP.MINITS.S>DTE.PALX.6, 13-50 (19915)
+.iff				;CPR did frob with 20
+	mov     #4,$pktdt+0(r1)
+	clr        $pktdt+2(r1)	;value at the CSR (never gets looked at)
+  .if z dtewho-11
+	mov chvmyn,$pktdt+4(r1)	;my address
+  .iff
+	movb nt.chs+1(r5),$pktdt+5(r1)	;set 20's subnet address
+	movb     chvmyn+0,$pktdt+4(r1)	;set host with subnet address
+  .endc	
+	mov #10000,$pktdt+6(r1)	;I don't run out of buffers
+	mov #<$pktdt+8-$dtpdt>,$pktxs(r1)	;just the header words
+	mov #<$pktdt+8-$dtpdt>/2,$dtpbc(r1)	;the byte(word) count
+**** FILE PS:<DCP.MINITS.S>FLADTE.PALX.1, 13-47 (18816)
+***************
+
+**** FILE PS:<DCP.MINITS.S>DTE.PALX.6, 14-2 (20512)
+.if nz ncpip
+;;; call @nt$ip(r5),[r5:=object, r1:=packet, r2,r3:=immediate_detination]
+dtipgv:
+ipstat +,15.
+.ipcpy 5
+	call ipks16		;make packet (data too) safe for 8.bit
+.ipcpy 6
+ipstat -,15.
+	jsr r0,dt..gv
+	  .word dttip_8
+.endc nz ncpip
+**** FILE PS:<DCP.MINITS.S>FLADTE.PALX.1, 14-2 (18922)
+***************
+

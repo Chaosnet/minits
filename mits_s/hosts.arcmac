@@ -1,0 +1,48 @@
+;;; This is the host table and documentation for the MINITS command processor.
+;;; It is in a separate file so that it can be changed without affecting
+;;;   the rest of the command processor.
+;;; Written by C. Hornig, May 1983.
+
+
+.macro	comdoc
+.ascii /  The Architecture Machine: /<%tdcrl>
+.ascii /  0 Media-Lab   7 Ee       14 Mc           21 Gutenberg/<%tdcrl>
+.ascii /  1 Atrp        8 Speech   15 Md           22 Degas/<%tdcrl>
+.ascii /  2 EMS         9 Xx       16 Ml           23 CAF/<%tdcrl>
+.ascii /  3 Pamela     10 Prep     17 Mx (kl)      24 Zaxxon/<%tdcrl>
+.ascii /  4 Nick       11 Charon   18 Corwin       25 Xevious/<%tdcrl>
+.ascii /  5 Oz         12 Eddie    19 HT           26 Obvious/<%tdcrl>
+.ascii /  6 Ai         13 Ccc      20 Oberon       27 Quantum/<%tdcrl><%tdcrl>
+.endm
+
+hstlst:
+	    052402		;00 Media-Lab
+	    052403		;01 Atrp
+	    052406		;02 EMS
+	    024030		;03 Pamela
+	    024020		;04 Nick
+	    011406		;05 OZ (no longer MC...)
+	    003130		;06 AI returns! 
+	    005542		;07 ee
+	    012035		;08 speech
+	    002420		;09 xx
+	    007016		;10 Prep
+	    050015		;11 Charon (SIPBVAX)
+	    037006		;12 Eddie
+	    016310		;13 CCC
+	    003131		;14 MC
+	    003132		;15 MD
+	    003133		;16 ML
+            001440		;17 KL/MX
+	    003035		;18 Corwin
+	    013026		;19 HTVAX
+	    003043		;20 Oberon
+	    013076		;21 Gutenberg
+	    015403		;22 Degas
+	    037350		;23 CAF
+	    052405		;24 Zaxxon
+	    052404		;25 Xevious
+	    052425		;26 Obvious
+	    052424		;27 Quantum
+
+		l$hstlst==.-hstlst

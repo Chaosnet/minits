@@ -1,0 +1,59 @@
+;;; -*-lisp-*-
+
+(defconst %TDRCR 213)
+(defconst %TDILP 223)
+(defconst %TDDLP 224)
+(defconst %TDICP 225)
+(defconst %TDDCP 226)
+
+(defvar height (// 582. 12.))
+
+(defvar ctv '())
+(defun assure ()
+  (setq ctv (or ctv (open "cha:eetest.ctv" '(out )))))
+
+(defun force ()
+  (loop repeat 1000. do (+tyo 210 ctv)))
+
+(defun lines (count)
+  (assure)
+  (+tyo 220 ctv)
+  (lplop height)
+  (loop repeat count
+	do
+	(+tyo %TDDLP ctv)
+	(+tyo 1 ctv)
+	(+tyo %TDILP ctv)
+	(+tyo 1 ctv)
+	(lplop 1))
+  (force))
+
+(defun lplop (nlines)
+  (loop for i upfrom 0 below nlines
+	do
+	(loop repeat 96.
+	      for j upfrom i
+	      do (+tyo (+ (\ j 96.) 40) ctv))
+	unless (= i (1- nlines))
+	do
+	(+tyo 12 ctv))
+  (+tyo 217 ctv)
+  (+tyo   0 ctv)
+  (+tyo   0 ctv))
+
+(defun chars (count)
+  (assure)
+  (+tyo 12 ctv)
+  (cplop 96.)
+  (loop repeat count
+	do
+	(loop repeat 48. do (+tyo %TDDCP ctv) (+tyo 1 ctv))
+	(loop repeat 48. do (+tyo %TDICP ctv) (+tyo 1 ctv))
+	(cplop 48.))
+  (force))
+
+(defun cplop (nchars)
+  (loop repeat nchars
+	for i upfrom 40
+	do (+tyo i ctv))
+  (+tyo %TDRCR ctv))
