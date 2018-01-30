@@ -1,0 +1,281 @@
+
+	.title	MINITS -- a mini ITS for throwing together hardware
+	.sbttl	MINITS -- a mini ITS for throwing together hardware
+minvrs==%fnam2
+
+;;; ;;; General info:
+;;; ;;; 	The core system.  Not much here, just gets everything going and
+;;; ;;; 	calls the scheduler. 
+
+;;; major prefixes used in the module
+
+	.sbttl	Initial code that should go first
+
+.=0
+.rept 1000/4
+  .word trptbl+<<.rpcnt/16.>*2>
+  .word 340+<.rpcnt&17>
+.endr
+
+.=400				;for those that remember old systems
+	jmp minits
+
+.=1000				;and even more recent systems
+	jmp minits
+
+.=1200				;real starting address (allows interrupt
+				;vectors up to 776) 
+
+start:: go:: begin::		;make everybody happy
+minits:	jmp minit1
+
+pdl=minits-20
+
+trptbl:	.rept 1000/4/16.
+	trap
+	.endr
+
+;;; stack structure:
+;;; 	old_ps
+;;; 	old_pc
+;;; 	magic_ps
+;;; sp>	magic_pc
+
+trpbrk:
+	sub #trptbl+2,(sp)
+	.rept 6-1
+	asl (sp)
+	.endr
+	bic #mask4,2(sp)
+	asl 2(sp)
+	asl 2(sp)
+	bis (sp)+,(sp)
+
+;;; stack_structure:
+;;; 	old_ps
+;;; 	old_pc
+;;; sp>	vector_interrupted_through
+
+.if z dbugad
+	halt
+.iff
+	jmp @#dbugad
+.endc
+	pop *			;vector interrupted through
+	rti
+
+;;; Trap routine to handle bad memory references
+
+.wscalar nxmadr
+.wscalar old4
+.wscalar old6
+
+nxmcat:	mov @(sp),nxmadr
+	add #2,(sp)
+	mov @#4,old4
+	mov @#6,old6
+	mov #nxmtrp,@#4
+	mov #pr7,@#6
+	return
+
+nxmtrp:	mov nxmadr,(sp)
+	call nxmclr
+	rti
+
+nxmclr:	mov old4,@#4
+	mov old6,@#6
+	return
+
+.wvector clock,2
+time=clock
+.wvector arptim,2		;arpa time (seconds since 01/01/00)
+.wscalar arp60th		;sixtieths
+
+.wscalar lkisup
+lkini:	clr clock+0		;t0 and counting
+	clr clock+2
+	mov #60.,arp60th
+	clr arptim+0
+	clr arptim+2
+lkpwu:	mov #lkint,@#lkvec+0	;set the interrupt pc
+	mov #pr6,@#lkvec+2	;priority 6 for interrupts
+	call nxmcat
+	 .word lknxm
+	bis #lk.ien,@#lkcsr	;punch the CSR in the face
+	call nxmclr
+	mov #-1,lkisup		;declare CSR there
+	return
+
+lknxm:	clr lkisup		;declare CSR absent (and hope)
+	return
+
+lkint:	inc clock+0		;increment 32 bit number
+	if eq,<inc clock+2>	;...
+	dec arp60th
+	if eq,<
+	  mov #60.,arp60th
+	  inc arptim+0
+	  if eq,<inc arptim+2>>
+	call sysclk		;tell the system the clock is ticking
+	tst lkisup
+	if ne,<			;only if CSR is really there
+	  bis #lk.ien,@#lkcsr	;punch the CSR in the face (it's face is
+				;going to hurt soon if he gets punched 60
+				;times a second!!)
+	  >
+
+	push r5
+	mov #lk.nxt,r5
+	if ne,<
+	  loop <
+	    call (r5)
+	    mov 2(r5),r5
+	    rptl ne
+	  > >
+	pop r5
+	  
+	rti
+
+lk.nxt==0
+.macro .syclk name
+	.word name,lk.nxt
+	lk.nxt==.-4
+.endm
+
+	.sbttl	Support inclusion
+
+.wscalar junk			;random thinks can point here
+
+;;; define the free storage manager
+	$insrt fsm
+;;; define the USER support routines
+	$insrt user
+;;; define system call support routines
+	$insrt uuo
+;;; define channel info
+	$insrt channl
+
+	.sbttl Real starting code
+
+.wscalar sysup			;-1 <==> system is up and tasking
+
+minit1:	reset			;BANG, kick everybody in the *ss
+	spl 7			;and don't let them kick back
+	clr sysup		;system is not, repeat NOT up yet
+	mov #pdl,sp		;set up the stack pointer
+
+	;;; initialize interrupt vectors to go through the bad interrupt
+	;;; routine
+	clr r0
+	mov #trptbl,r1
+	mov #400/4/16.,r2
+	loop <
+	  mov #16.,r3
+	  mov #340,r4
+	  loop <
+	    mov r1,(r0)+
+	    mov r4,(r0)+
+	    inc r4
+	    sorl r3
+	    >
+	  add #2,r1
+	  sorl r2
+	  >
+
+	mov #trpbrk,@#034	;initialize trap vector
+	mov #pr6,@#034+2	;...
+
+	push #fs$beg,#fs$end	;start and end of free storage
+	call fsmini		;initialize the Free Storage Manager
+
+	call uuoini		;initialize the system call handler
+	call usrini		;initialize the user routines
+
+	devini			;initialize devices
+
+	mov #-1,sysup		;system now up and running
+	jmp schnxt
+
+.deshed==iot			;descheduling instruction
+
+strlen:	push r0,r1
+	mov 6(sp),r0
+	mov #-1,r1
+	loop <
+	  inc r1
+	  tstb (r0)+
+	  rptl ne
+	  >
+	mov r1,6(sp)
+	pop r1,r0
+cpopj::
+nopsub:	return			;no operation subroutine
+	
+upcase:	bic #mask7,2(sp)
+	cmpb 2(sp),#'a
+	if ge,<
+	  cmpb 2(sp),#'z
+	  if le,<
+	    sub #<'a-'A>,2(sp)
+	  > >
+	return
+
+
+.if g ntty
+;;; define tty support
+	$insrt tty
+;;; and a command processor for the tty
+	$insrt compro
+.endc
+
+;;; include support for the defined devices
+	devfil
+
+.iif nz %muldv, $insrt muldiv
+
+
+
+;;; define the host string
+
+hststr:	$host$
+
+con...:	constants
+con..e::
+var...:	variables
+var..e::
+
+patch:	.pat:
+	.blkw 10
+
+fs$beg:
+
+
+.if p2
+.irp con...,\con...
+.irp var...,\var...
+.irp %patch,\patch
+.irp %frees,\fs$beg
+.irp %top,\fs$end
+.irp %k,\<<<%top-%frees>/2>&077777>/2000
+.print /
+Constants area from con... to var...
+Variables area from var... to %patch
+Patch     area from %patch to %frees
+Free Stor area from %frees to %top = %K (octal) K
+/
+.endm
+.endm
+.endm
+.endm
+.endm
+.endm
+.endc
+
+.end minits
+
+;;; local modes:
+;;; mode:midas
+;;; auto fill mode:
+;;; fill column:75
+;;; comment column:32
+;;; end:

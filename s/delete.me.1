@@ -1,0 +1,26 @@
+	.sbttl	System 111: Mass-Ave 17-21 bridge
+.if z system-111
+	.title	Mass-Ave 17-21 bridge
+
+.host. <Mass-Ave 17-21 bridge>
+
+memtop==160000			;top of usable memory
+bootad=173000			;reboot at standard bootstrap
+dbugad==173000			;debug also reloads
+
+defdev np,pktncp,<>
+
+defdev c1,ch11,<
+  ;;;	ch11 vec,csr
+	ch11 270,164140
+	ch11 250,165140
+  >
+
+defdev chs,chsncp,<
+  ;;;	chsncp maxsubnet,maxconnections
+	chsncp 60,       10
+  >
+
+.endc system 111
+
+

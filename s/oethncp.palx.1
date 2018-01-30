@@ -1,0 +1,130 @@
+
+.lif  z %defin
+	.title	Ethernet support
+	.sbttl	Ethernet support: Definitions, Macros and Code
+
+.iif  z %defin, .nlist		;don't list definitions and macros if not
+				;defining them
+
+.if  nz %defin			;only define symbols when we are supposed to
+
+defncp eth			;declare ETHERNET NCP support
+
+.if p1
+	.sbttl	-- Definitions 
+
+  ;;
+;;;;;;	Ethernet protocol type fields
+  ;;
+
+%etchs==259.			;CHAOS protocol
+
+;;; Current known Ethernet boards:
+;;; 	Ether addr	Chaos		type	machine
+;;; 	----- ----	-----		----	-------
+;;; 	020701-000148	015410(033/010)	Interla MIT-EETEST
+;;;	02608c-000168	015420(033/020)	3Com	MIT-EETEST
+;;;	02608c-000486	015430(033/030) 3Com	MIT-EE-40
+;;; 	02608c-000307	024410(051/010)	3Com	SCRC-
+;;; 	020701-000132	024420(051/020)	Interla	SCRC-
+;;; 	020701-000136	024430(051/020)	Interla	SCRC-
+
+	.sbttl	-- Macros
+
+
+.endc p1
+
+.endc %defin
+
+.iif  z %defin, .list		;start listing again
+
+.iif nz %defin, .nlist		;don't list code if only doing definitions
+
+.if   z %defin			;only do code if not defining symbols
+
+	.sbttl	-- Code
+
+;;; call ethrcv(r1:=packet, r2:protocol_type, 
+;;;		r4:I/O page address, r5:hardware object)
+ethrcv:
+		.if nz ncpchs
+	cmp r2,#%etchs
+	if eq,<jcall chsrcv>
+		.endc
+		.if nz ncpip
+	cmp r2,#%etip
+	if eq,<jcall iprcv>
+		.endc
+	netmet ot
+	jcall pktfre
+
+ethini:	return
+
+
+.if nz ncpchs
+
+.macro .ettchs	chaddr,ethad0,ethad3
+	.word chaddr
+	.byte ethad0,ethad3
+.endm
+
+ettchs:
+	.ettchs 015410,<002,007,001>,<000,001,108>	;eetest interlan 1
+	.ettchs	015420,<002,140,214>,<000,001,150>	;eetest 3com	 1
+	.ettchs	015430,<002,140,214>,<000,004,106>	;ee-40  3com
+	.ettchs 024410,<002,140,214>,<000,003,007>	;scrc	3com	 1
+	.ettchs 024420,<002,007,001>,<000,001,062>	;scrc	interlan 1
+	.ettchs 024430,<002,007,001>,<000,001,066>	;scrc	interlan 2
+lettchs==<.-ettchs>/8
+
+.endc ncpchs
+
+
+ethtrn:
+		.if nz ncpchs
+	cmp r0,#%etchs
+	if eq,<
+	  tst r2
+	  if eq,<
+	    com r2		;make it -1
+	    mov r2,r3
+	    mov r3,r4
+	    clc
+	    return
+	    >
+	  mov #ettchs,r4
+	  mov #lettchs,r3
+	  loop <
+	    cmp r2,(r4)+
+	    if eq,<
+	      mov (r4)+,r2
+	      mov (r4)+,r3
+	      mov (r4),r4
+	      clc
+	      return
+	    >
+	    add #6,r4
+	    sorl r3
+	    >
+	  sec
+	  return
+	  >
+		.endc ncpchs
+		.if nz ncpip
+		.endc ncpip
+	sec
+	return
+
+****
+
+.endc %defin
+
+.iif nz %defin, .list		;start listing as usual
+
+
+;; local modes:
+;; mode:midas
+;; auto fill mode:
+;; fill column:75
+;; comment column:32
+;; end:

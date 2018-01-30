@@ -1,0 +1,48 @@
+
+;COMPARISON OF PS:<DCP.MINITS.S>DTE.PALX.1 AND PS:<DCP.MINITS.S>DTE.PALX.4
+;OPTIONS ARE    /3
+
+**** FILE PS:<DCP.MINITS.S>DTE.PALX.1, 5-55 (6425)
+**** FILE PS:<DCP.MINITS.S>DTE.PALX.4, 5-55 (6425)
+	.lif nz ncpchs
+$dtlct::	.blkw 1		;last chaos packet time
+***************
+
+**** FILE PS:<DCP.MINITS.S>DTE.PALX.1, 8-23 (10131)
+	  if eq,<jcall chsrcv>
+**** FILE PS:<DCP.MINITS.S>DTE.PALX.4, 8-23 (10191)
+	  if eq,<
+	    mov time,$dtlct(r5)	;set last chaos packet time
+	    jcall chsrcv	;go receive chaos packet
+	    >
+***************
+
+**** FILE PS:<DCP.MINITS.S>DTE.PALX.1, 10-47 (12981)
+**** FILE PS:<DCP.MINITS.S>DTE.PALX.4, 10-47 (13134)
+	else <
+		.if nz ncpchs
+	  push $dtlct(r5)	;get last chaos packet time
+	  add #60.*60.,$dtlct(r5)	;up it by one minute for next time
+	  add #60.*60.*5,(sp)	;5 minutes after
+	  cmp (sp)+,time	;time passed yet
+	  if pl,<		;yup, kick the 20
+	    mov #$pktdt+6,r1	;6 bytes of packet data for info to 20
+	    call pktall		;get a packet
+	    if ne,<call dtchss>	;send him my status
+	    >
+		.endc
+	  >
+***************
+
+**** FILE PS:<DCP.MINITS.S>DTE.PALX.1, 11-127 (16351)
+**** FILE PS:<DCP.MINITS.S>DTE.PALX.4, 11-127 (16913)
+.iif nz ncpchs, mov time,$dtlct(r5)	;fake a chaos packet in now
+***************
+
+**** FILE PS:<DCP.MINITS.S>DTE.PALX.1, 13-43 (18901)
+dtchss:	movb #2,$dtpst(r1)	;turn it into a HERE IS STATUS
+**** FILE PS:<DCP.MINITS.S>DTE.PALX.4, 13-43 (19528)
+dtchss:	movb #dttchs,$dtpmt(r1)	;major type is chaos
+	movb #2,$dtpst(r1)	;turn it into a HERE IS STATUS
+***************
+

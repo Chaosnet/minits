@@ -1,0 +1,15 @@
+	mov	usrnow, r1
+	loop	<
+
+	   mov	usrnxt(r1), r2		; Get nxt user
+	   cmp	r2, usrnow
+	   exitl eq			; done
+	   mov	r2, r1
+	   mov	usrvrs(r1), r2
+	   bis #4000, $cpevn(r2)
+           rptl
+
+		>
+
+	bis #4000, $cpevn(r5)
+

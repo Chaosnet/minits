@@ -1,0 +1,436 @@
+.lif  z %defin
+	.title	GOULD support
+	.sbttl	GOULD support: Definitions, Macros and Code
+
+.iif  z %defin, .nlist		;don't list definitions and macros if not
+				;defining them
+
+.if  nz %defin			;only define symbols when we are supposed to
+
+.if p1
+	.sbttl	-- Definitions 
+
+gld.csr==0	;offset to the CSR
+  %gstmo==040000	;high speed graphics timeout
+  %gspap==020000	;paper low
+  %gsvac==010000	;vacuum fault (obsolete or dowsn't exist?)
+  %gsbsy==004000	;busy (paper movement, system being reset, etc.)
+  %gsdon==002000	;dma transfer complete
+  %gsnrd==000400	;not ready (interlock tripped)
+  %gserr==%gsnrd	;only care about primary failure
+		;;; command codes
+  %gcff==0000		;top-of-form command (128 rasters on roll paper)
+  %gcgrf==001		;graphics mode command
+  %gccut==002		;cut command
+  %gcon==0003		;turn printer on
+  %gcoff==004		;turn printer off
+  %gclsl==005		;last line (graphic mode). <==> 2 more scan lines.
+  %gcion==006		;interrupt on
+  %gciof==007		;interrupt off
+  %gchom==200		;home (256 raster units)
+  %gcadv==201		;advance one line
+gld.wc==2	;offset to two's-complement-of-word-count register
+gld.ca==4	;current address register
+
+%glalp==25.		;size of an alpha line in rasters
+
+;;; Gould packet opcode bits
+%gocut==001			;cut the paper
+%goalp==002			;enter alpha mode
+%goslw==004			;slow down
+
+	.sbttl	-- Macros
+
+.macro gld vec,csr,chwin	;vector, csr, chaos window size
+.if nz ngld
+  .error Sorry, only allowed one GOULD.
+.iff
+  gldvec==vec
+  gldcsr==csr+gld.csr
+  gldwc==csr+gld.wc
+  gldca==csr+gld.ca
+  gldwin==chwin
+  gldpri==5			;gould priority
+  glstpk==10000
+  gldtmo==6*60.			;gould timeout (5 secs for toner pump to
+				;stop)
+  gldcwn==20.			;minimum window for paper cutting
+.endc
+ngld==ngld+1
+.endm
+
+.endc p1
+
+ngld==0				;no goulds yet
+chnsrv ^"GOULD",cxgould		;define the server
+
+.endc %defin
+
+.iif  z %defin, .list		;start listing again
+
+.iif nz %defin, .nlist		;don't list code if only doing definitions
+
+.if   z %defin			;only do code if not defining symbols
+
+	.sbttl	-- Code
+
+.wscalar glvtst			;location to test when opening. If hardware
+				;is present, this will point to the CSR. if
+				;it is not, it will point to 177777
+.wscalar glvsta			;Gould status. Bits in high have. State in low.
+  %gmava==100000		;1 <==> available
+  %gmoff==000000		;disabled
+  %gmalp==000001		;alphanumeric mode
+  %gmgrf==000002		;graphics mode
+  %gmfst==000100		;fast mode
+.wscalar glvcsr			;saved CSR value
+ .wscalar glvnos		;number of output slots for gould packets
+ .wscalar glvpkl		;list of packets queued for the Gould
+ .wscalar glvpke		;end of the list of packets queued
+ .wscalar glvnpk		;number of packets on the list
+ .wscalar glvlpk		;last packet given for DMA
+.wscalar glvtim			;time we last frobbed the gould
+.wscalar glvlin			;current scan line number
+.wscalar glvlic			;scan line number at last cut
+
+.wscalar glvsp			;servers stack pointer
+.wscalar glvflg			;Gould run-time flags
+  %gfatn==100000		; somebody wants attention
+  %gferr==040000		; gould got an error
+  %gfnpk==020000		; gould needs a packet
+  %gfbsy==010000		; gould want's server to busy wait
+  %gfchs==000001		; still talking to chaosnet
+
+cxgould:
+	cx$srv gldopn,40,240_8,<>	;server address, stack size,
+					;priority, no extra code
+gldopn:	call cpkpki
+	if cs,<
+110$:	  call ccnfre
+	  .logout
+	  >
+	tst glvsta		;is it available?
+	if pl,<			;nope
+	  mov (pc)+,r2	;in use message
+	    .string <Sorry, the Gould is already in use.>
+120$:	  clr $cpknb(r1)
+	  call cpkaz1		;stuff it in one packet
+	  movb #%cocls,$cpkop(r1)
+	  call cpkpko		;output it
+	  br 110$
+	  >
+	bit #%gserr,@glvtst	;is the gould in an error state
+	if ne,<
+130$:	  mov (pc)+,r2
+	    .string <The Gould is not available at this time.>
+	  br 120$
+	  >
+	bic #%gmava,glvsta	;no longer available to others
+mov sp,glvsp			;save stack for debugging
+	clr glvcsr		;nothing remembered from CSR
+	mov #glvflg,$ccepr(r0)	;event pointer receive
+	mov #%gfatn,$ccebr(r0)	;event bits    receive
+	mov #gldwin,$cpkpn(r1)	;window size
+	movb #%coopn,$cpkop(r1)
+	call cpkpko
+	mov #%gfatn!%gfnpk!%gfchs,glvflg	;initial gould state
+	loop <			;exit when ready to close down connection
+	  lock gldpri
+	  bit #%gfatn,glvflg
+	  if eq,<
+	    unlock
+	    push r0,#%gfatn
+	    .regs #hng.bn,sp,#glvflg
+	    .hang
+	    pop *,r0
+	    rptl
+	    >
+	  bic #%gfatn,glvflg
+	  unlock
+	  bit #%gferr,glvflg	;error
+	  exitl ne
+	  bit #%gfchs,glvflg
+	  if ne,<call gldchs>	;handle the chaosnet
+	  call gldgld		;handle the gould
+	  bit #%gfchs,glvflg
+	  rptl ne		;still talking to network
+	  tst glvnpk
+	  rptl ne		;packets still pending
+	  >
+	call gldfin		;finish off the gould
+	call glddwn		;shut down the gould
+	bis #%gmava,glvsta	;gould is available
+	.logout			;die
+	
+gldgld:	bit #%gfbsy,glvflg
+	if ne,<			;asked to busy wait
+	  bic #%gfbsy,glvflg
+	  push r0,#%gsbsy
+	  .regs #hng.be,sp,#gldcsr
+	  .hang
+	  pop *,r0
+	  lock gldpri
+	  call gldint
+	  >
+	bit #%gfnpk,glvflg	;does the hardware need a packet
+	if ne,<
+	  tst glvnpk		;are there any?
+	  if ne,<		;sure is...
+	    bic #%gfnpk,glvflg	;no longer needs a packet
+	    lock gldpri		;fake an interrupt
+	    call gldint
+	  > >
+	return	
+
+gldchs:	tst glvnos		;any room for a potential packet?
+	if eq,<return>
+	call cpkpki
+	bcs 200$		;cleanup on error
+	if eq,<return>
+	tstb $cpkop(r1)		;what is the opcode
+	if pl,<			;not data
+	  call cpkfre		;free the packet
+200$:	  mov #junk,$ccepr(r0)	;events are now junk
+	  bic #%gfchs,glvflg	;no longer talking to chaosnet
+	  bis #%gfatn,glvflg
+	  return
+	  >
+	lock gldpri
+	  dec glvnos
+	  mov r1,@glvpke
+	  mov r1,glvpke
+	  inc glvnpk
+	  bis #%gfatn,glvflg	;declare an interesting event
+	unlock
+	return
+
+gldfin:	call ccnfre		;free the connection
+	movb #%gcoff,@#gldcsr	;turn off the gould
+	movb #%gcon,@#gldcsr	;and on again (to make sure it really is on)
+	push #0,#12212,#21221	;3*(cut/home/home)+cut (read right to left)
+	loop <
+	  pop r5
+	  exitl eq
+	  loop <
+	    mov r5,r4		;get next command
+	    exitl eq		;done if none
+	    push #%gsbsy
+	    .regs #hng.be,sp,#gldcsr
+	    .hang		;wait for device ready
+	    pop *
+	    bit #%gserr,@#gldcsr	;is there an error?
+	    exitl ne		;exit if there was an error
+	    bic #mask3,r4	;get current command
+	    ash #-3,r5		;and shift down the others
+	    dec r4
+	    if eq,<movb #%gccut,@#gldcsr>	;cut the paper
+	    dec r4
+	    if eq,<movb #%gchom,@#gldcsr>	;home the paper
+	    rptl
+	    >
+	  rptl
+	  >
+	return
+
+glddwn:	push r1,r0
+	movb #%gcoff,@#gldcsr	;disable
+	movb #%gciof,@#gldcsr	;no interrupts
+	movb #%gmoff,glvsta	;status:=disabled
+	tst sysup		;is the system up yet?
+	if ne,<			;it is up
+	  mov glvlpk,r1		;get the last packet
+	  if ne,<call cpkfre>	;free the packet if there is one
+	  mov glvpkl,r1		;get the packet list
+	  if ne,<call cpkfrl>	;and free the list
+	  >
+	clr glvnpk		;no packets on the list
+	mov #glvpkl,glvpke	;set up the end pointer
+	clr glvlpk		;no last packet
+	clr glvpkl		;no list of pending packets
+	mov #gldwin,glvnos	;chaos window is also device window
+	clr glvlin		;start at line zero
+	mov #100000,glvlic	;last line cut is very far away
+	pop r0,r1
+	return
+
+
+gldini:	movb #%gmoff,glvsta	;make status disabled
+	call nxmcat
+	  gldnxm
+	movb #%gcoff,@#gldcsr	;disable the hardware
+	movb #%gciof,@#gldcsr	;interrupts off to start
+	mov  #gldint,@#gldvec+0
+	mov  #gldpri*40,@#gldvec+2
+	call nxmclr
+	mov #gldcsr,glvtst	;test the CSR when trying to open
+	mov #%gmava,glvsta	;state is available and disabled
+	jcall glddwn		;shut the gould down
+
+gldnxm:	bis #-1,glvcsr		;set all bits in the saved CSR
+	clr glvsta		;but claim it is available
+	mov #glcng1,glvtst	;set the testing variable to all ones
+	return
+
+glcng1:	.word -1		;constant all ones, so GLDOPN errors if
+				;hardware not present
+
+
+
+gldint:	push r1
+clr @#500
+	mov @#gldcsr,glvcsr	;save the CSR
+	mov glvtim,r1		;get time last frobbed the gould
+	add #gldtmo/2,r1	;half timeout after
+	cmp r1,time
+	if mi,<movb #%gmoff,glvsta>	;pretend it is disabled
+	mov time,glvtim		;remember this as the time of frobbing
+	bit #%gsvac,@#gldcsr	;is vacuum pump on?
+	if ne,<
+	  movb #%gcoff,@#gldcsr	;turn it off
+	  movb #%gmoff,glvsta	;software off as well
+	  >
+	bit #%gserr,glvcsr	;any errors?
+	if ne,<bis #%gfatn!%gferr,glvflg>	;inform the server of error
+	else  <
+	  mov glvpkl,r1
+	  if eq,<bis #%gfatn!%gfnpk,glvflg>	;tell server that hardware is in need
+	  else <
+	    mov (r1),glvpkl	;unlink it
+	    if eq,<
+	      mov #glvpkl,glvpke	;set up end pointer
+	      >
+	    dec glvnpk		;one less packet on the list
+	    inc glvnos		;one more output slot 
+	    bis #%gfatn,glvflg	;server allowed to process packets now
+	    bitb #%gocut,$cpkop(r1)	;cut the paper?
+	    if ne,< call gldcut	;go and try to cut the paper
+		    bcs 10$>	;error out
+	    movb #%gcion,@#gldcsr	;make sure interrupts are on
+	    bitb #%goalp,$cpkop(r1)
+	    if ne,<call gldalp>	;do alphanumeric
+	    else  <call gldgrf>	;do graphics
+	    br 20$		;let interrupts take care of the rest
+	    >
+	  >
+10$:	movb #%gciof,@#gldcsr	;turn interrupts off
+20$:	pop r1
+	rti
+
+
+gldcut:	cmpb #%gmalp,glvsta	;is it in alpha mode
+	if ne,<
+	  push glvlic
+	  add #gldcwn,(sp)
+	  cmp glvlin,(sp)+
+	  bmi 50$		;not in window. exit success
+	  >
+	bit #%gsbsy,@#gldcsr	;is the gould busy
+	bne gldbsy		;go wait for another interrupt
+	movb #%gccut,@#gldcsr	;do the cut
+	bicb #%gocut,$cpkop(r1)	;remove cut bit from packet
+	mov glvlin,glvlic
+50$:	clc			;success
+	return
+
+gldalp:	cmpb #%gmalp,glvsta	;already in alpha mode?
+	if ne,<
+	  movb #%gcoff,@#gldcsr	;disable
+	  movb #%gcon,@#gldcsr	;enable
+	  movb #%gmalp,glvsta	;mode:=alpha
+	  bit #%gsbsy,@#gldcsr	;still busy
+	  bne gldbsy		;go wait for another interrupt
+	  >
+	br glddma		;go do some DMA
+
+gldbsy:	bis #%gfatn!%gfbsy,glvflg	;tell the server to busy wait
+gldsus:	mov glvpkl,(r1)		;link the packet onto the list
+	if eq,<mov r1,glvpke>	;make it the end if necessary
+	mov r1,glvpkl		;and make it the list as well
+	inc glvnpk		;recount it
+	dec glvnos		;one less output slot
+	sec			;error return
+	return
+
+gldgrf:	bitb #%gmgrf,glvsta	;are we in graphics mode?
+	if eq,<
+	  call gldsel		;go select graphics mode
+	  bit #%gsbsy,@#gldcsr	;still busy?
+	  bne gldsus		;go wait for interrupt
+	  >
+	else <	;already in graphics mode
+	  bit #%gmfst,glvsta	;are we in fast mode?
+	  if ne,<
+	    bitb #%goslw,$cpkop(r1)	;slow down bit in opcode
+	    bne 10$
+	    cmp glvnpk,#2	;should we do last line indicator
+	    if lt,<
+10$:	      movb #%gclsl,@#gldcsr	;last line
+	      bic #%gmfst,glvsta	;remember we are in slow mode now
+	      >
+	    >
+	  else <;already in slow mode
+	    bitb #%goslw,$cpkop(r1)	;slowdown bit in opcode?
+	    if eq,<		;no, try to speed up
+	      cmp glvnpk,#glstpk	;do we have enough to try
+	      if ge,<
+		movb #%gcoff,@#gldcsr	;disable (assumed immediate in slow mode)
+		movb #%gcgrf,@#gldcsr	;graphics mode (high speed is default)
+		movb #%gcon,@#gldcsr	;and re-enable
+		bisb #%gmfst,glvsta	;set the status
+		bit #%gsbsy,@#gldcsr	;still busy?
+		bne gldsus	;wait for interrupt 
+		>
+	      >
+	    >
+	  >
+
+	;;; falls through
+
+glddma:	bit #%gsdon,@#gldcsr	;is the gould ready for DMA
+	beq gldsus		;wait for interrupt
+	inc glvlin		;another line
+	push $cpknb(r1)		;get number of bytes in the packet
+	inc (sp)		;round up
+	asr (sp)		;make it a word count
+	neg (sp)		;device wants negative word count
+	pop @#gldwc		;put it in the device register
+	push r1			;get register pointer
+	add #$cpkdt,(sp)	;point to data
+	pop @#gldca		;put pointer in current address register
+	push glvlpk
+	call fsmfre		;free it (cannot do a packet free since we
+				;may be at interrupt level)
+
+;;; 	push r1			;save this packet
+;;; 	mov glvlpk,r1		;get the last one
+;;; 	if ne,<call cpkfre>
+;;; 	pop r1
+
+	mov r1,glvlpk
+	clc			;success return
+	return
+
+gldsel:	movb #%gcoff,@#gldcsr	;disable
+	movb #%gcgrf,@#gldcsr	;turn on graphics mode
+	bitb #%goslw,$cpkop(r1)	;slowdown bit in opcode?
+	bne 10$
+	cmp glvnpk,#glstpk		;do we have enough to enter highspeed mode?
+	if gt,<	movb #%gmgrf+%gmfst,glvsta>
+	else  < 
+10$:	  movb #%gmgrf,glvsta
+	  movb #%gclsl,@#gldcsr
+	  >
+	movb #%gcon,@#gldcsr
+	return
+
+.endc %defin
+
+.iif nz %defin, .list		;start listing as usual
+
+
+;; local modes:
+;; mode:midas
+;; auto fill mode:
+;; fill column:75
+;; comment column:32
+;; end:

@@ -1,0 +1,7375 @@
+310
+	MINSRC:COMPRO PALX	Page 1 	TTY support
+
+					
+					.title	Command Processor
+						.sbttl	Command Processor
+					
+					;;; ;;; General info:
+					;;; ;;; 	One of crufties command processors I have ever seen, but then
+					;; ;;; 	again, I was never very good at user interfaces.  This should be
+					;;; ;;; 	completly reimplemented.
+					
+					;;;;;;     **************** WARNING!!!! This processor HACKED UP!!!!
+					
+					
+					
+				  dsect <		;;; command processor variables
+				$cpevn::	.blkw 1		;event word
+				 %cptyi==100000
+				 %cptyo==040000
+				 %cphsi==020000
+				 %cphso==010000
+				 %cpmsg==004000
+				$cpevs::	.blkw 1		;saved event word
+				$cpcon::	.blkw 1		;continuation for terminal input
+				$cptyi::	.blkw 1		;terminal input  channel
+				$cptyo::	.blkw 1		;terminal output channel
+				$cphsi::	.blkw 1		;host input  channel
+				$cphso::	.blkw 1		;host output channel
+				$cphoc::	.blkw 1		;host output continuation
+				$cphic::	.blkw 1		;host input  continuation
+				$cptnm::	.blkw 1		;telnet modes
+				 %tniac==377
+				 %tnsb==372			;subnegotiation begin
+				 %tnse==360			;subnegotiation end
+				 %tnwil==251.
+				 %tnwnt==252.
+				 %tndo==253.
+				 %tndnt==254.
+				 %tnip==244.
+				 %tntbn==0			;Transmit binary
+				 %tneco==1			;ECHO
+				 %tnsga==3			;suppress go ahead
+				 %tntmk==6			;timing mark
+				 %tnloc==23.			;terminal location negotiation
+				 .tntbn==00.			;LSH amount for transmit binary
+				 .tneco==04.			;LSH amount for echo
+				 .tnsga==08.			;LSH amount for Suppress Go Ahead
+				 .tnfwa==01			;what the foreign host wants to do
+				 .tnfdo==02			;what the foreign host is doing
+				 .tnlwa==04			;what local wants to do
+				 .tnldo==10			;what local is doing
+				$cptnc::	.blkw 1		;telnet from connection continuation
+				$cphsm::	.blkw 1		;mode of the host input channel
+				l$cpbf==40			;size of temp buffers
+				$cphsb::	.blkb l$cpbf	;host input buffer
+				$cphsp::	.blkw 1		;pointer into buffer
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 311
+	MINSRC:COMPRO PALX	Page 1.1 	Command Processor
+
+				$cphsc::	.blkw 1		;count of characters in the host input buffer
+				$cpoct::	.blkw 1		;octal number accumulated
+				$cpdec::	.blkw 1		;decimal number accumulated
+				$cpnum::	.blkw 1		;0 <==> no number
+				$bugflg::	.blkw 1
+				$bugidn::	.blkw 1
+					  >,l$cp
+					
+					
+						$insrt	hosts		;define host table
+							.if b 
+								.insrt minsrc:hosts.palx
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 312
+	MINSRC:HOSTS PALX	Page 1 	Command Processor
+
+					;;; This is the host table and documentation for the MINITS command processor.
+					;;; It is in a separate file so that it can be changed without affecting
+					;;;   the rest of the command processor.
+					;;; Written by C. Hornig, May 1983.
+					
+					
+					.macro	comdoc
+					.ascii /   0 MIT-MC      7  MIT-VX      14  MIT-OZ        21  MIT-HTVAX/<%tdcrl>
+					.ascii /   1 MIT-PREP    8  SCRC-TENEX  15  SCRC-Comet    22  SCRC-CUPID/<%tdcrl>
+					.ascii /   2 MIT-EE      9  MIT-Multics 16  MIT-EDDIE     23  SCH-COYOTE/<%tdcrl>
+					.ascii /   3 MIT-SPEECH 10  MIT-CCC     17  MIT-Pygmalion 24  MIT-Hephaestus/<%tdcrl>
+					.ascii /   4 MIT-XX     11  MIT-RTS     18  MIT-Corwin    25  MIT-Talos/<%tdcrl>
+					.ascii /   5 MIT-Math   12  SCRC-VIXEN  19  MIT-HTJR	  26  MIT-Heart-of-Gold/<%tdcrl>
+					.ascii /   6 MIT-ML     13  MIT-PFC-VAX 20  MIT-Oberon/<%tdcrl>
+					.endm
+					
+					hstlst:
+	015320	001440				    001440		;00 mc
+	015322	003143				    003143		;01 MIT-PREP
+	015324	005542				    005542		;02 ee
+	015326	012035				    012035		;03 speech
+	015330	002420				    002420		;04 xx
+	015332	007770				    007770		;05 math
+	015334	003114				    003114		;06 ml
+	015336	003120				    003120		;07 VX
+	015340	017402				    017402		;08 SCRC
+	015342	016050				    016050		;09 CMUL
+	015344	016310				    016310		;10 CCC
+	015346	000470				    000470		;11 RTS-11/70
+	015350	024432				    024432		;12 SCRC-VIXEN
+	015352	003631				    003631		;13 PFC-VAX
+	015354	011406				    011406		;14 OZ
+	015356	017020				    017020		;15 Comet
+	015360	003404				    003404		;16 Eddie
+	015362	013060				    013060		;17 Pygmalion
+	015364	003035				    003035		;18 Corwin
+	015366	003067				    003067		;19 HTJR
+	015370	003043				    003043		;20 Oberon
+	015372	003025				    003025		;21 HTVAX
+	015374	017030				    017030		;22 SCRC-CUPID
+	015376	022405				    022405		;23 SCH-COYOTE
+	015400	003152				    003152		;24 Hephaestus
+	015402	003156				    003156		;25 Talos
+	015404	016142				    016142		;26 Heart-of-gold
+		000066					l$hstlst==.-hstlst
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 313
+	MINSRC:COMPRO PALX	Page 1.2 	Command Processor
+
+							.iff
+								.insrt minsrc:hosts.
+							.endc
+					
+					cp$cp:	.regs #l$cp
+					 .irp arg,<#l$cp,,,,,>
+					  .irp num,\.irpcnt
+					   .if idn arg,#0
+					     clr r'num
+					   .iff
+					    .lif nb arg
+					     mov arg,r'num
+					   .endc
+					  .endm
+					 .endm
+					  .irp num,\.irpcnt
+					   .if idn #l$cp,#0
+					     clr r'num
+					   .iff
+					    .lif nb #l$cp
+					     mov #l$cp,r'num
+					   .endc
+					  .endm
+					   .if idn #l$cp,#0
+					     clr r0
+					   .iff
+					    .lif nb #l$cp
+	015406	012700	000106		     mov #l$cp,r0
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r1
+					   .iff
+					    .lif nb 
+					     mov ,r1
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r2
+					   .iff
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 314
+	MINSRC:COMPRO PALX	Page 1.3 	Command Processor
+
+					    .lif nb 
+					     mov ,r2
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r3
+					   .iff
+					    .lif nb 
+					     mov ,r3
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r4
+					   .iff
+					    .lif nb 
+					     mov ,r4
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r5
+					   .iff
+					    .lif nb 
+					     mov ,r5
+					   .endc
+	015412	104010				.uall
+						if cs,<.logout>
+	015420	010005				mov r0,r5		;keep it in r5
+						push #-1		;my tty
+						.regs #opntty,sp
+					 .irp arg,<#opntty,sp,,,,>
+					  .irp num,\.irpcnt
+					   .if idn arg,#0
+					     clr r'num
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 315
+	MINSRC:COMPRO PALX	Page 1.4 	Command Processor
+
+					   .iff
+					    .lif nb arg
+					     mov arg,r'num
+					   .endc
+					  .endm
+					 .endm
+					  .irp num,\.irpcnt
+					   .if idn #opntty,#0
+					     clr r'num
+					   .iff
+					    .lif nb #opntty
+					     mov #opntty,r'num
+					   .endc
+					  .endm
+					   .if idn #opntty,#0
+					     clr r0
+					   .iff
+					    .lif nb #opntty
+	015426	012700	011526		     mov #opntty,r0
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn sp,#0
+					     clr r'num
+					   .iff
+					    .lif nb sp
+					     mov sp,r'num
+					   .endc
+					  .endm
+					   .if idn sp,#0
+					     clr r1
+					   .iff
+					    .lif nb sp
+	015432	010601			     mov sp,r1
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r2
+					   .iff
+					    .lif nb 
+					     mov ,r2
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 316
+	MINSRC:COMPRO PALX	Page 1.5 	Command Processor
+
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r3
+					   .iff
+					    .lif nb 
+					     mov ,r3
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r4
+					   .iff
+					    .lif nb 
+					     mov ,r4
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r5
+					   .iff
+					    .lif nb 
+					     mov ,r5
+					   .endc
+	015434	104006				.open
+						if cs,<.logout>
+						pop *
+	015444	112761	000004	000010		movb #md%sup,$clmod(r1)	;set supdup mode on output
+	015452	052760	100000	000010		bis  #%clnhg,$clmod(r0)	;no hang on tty input
+	015460	010065	000006			mov r0,$cptyi(r5)	;tyi
+	015464	010165	000010			mov r1,$cptyo(r5)	;tyo
+	015470	012765	016264	000004		mov #cp$tyi,$cpcon(r5)	;continuation routine for terminal input
+						call cp$cl2		;close the host (or at least fake it)
+	015476	004767	000444			jsr pc,cp$cl2
+	015502	012765	000030	000070		mov #$cphsb,$cphsp(r5)	;offset to host input buffer
+	015510	060565	000070			add r5,$cphsp(r5)	;now really point to it
+						.regs $cptyi(r5),#chnevr,#%cptyi,r5
+					 .irp arg,<$cptyi(r5),#chnevr,#%cptyi,r5,,>
+					  .irp num,\.irpcnt
+					   .if idn arg,#0
+					     clr r'num
+					   .iff
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 317
+	MINSRC:COMPRO PALX	Page 1.6 	Command Processor
+
+					    .lif nb arg
+					     mov arg,r'num
+					   .endc
+					  .endm
+					 .endm
+					  .irp num,\.irpcnt
+					   .if idn $cptyi(r5),#0
+					     clr r'num
+					   .iff
+					    .lif nb $cptyi(r5)
+					     mov $cptyi(r5),r'num
+					   .endc
+					  .endm
+					   .if idn $cptyi(r5),#0
+					     clr r0
+					   .iff
+					    .lif nb $cptyi(r5)
+	015514	016500	000006		     mov $cptyi(r5),r0
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn #chnevr,#0
+					     clr r'num
+					   .iff
+					    .lif nb #chnevr
+					     mov #chnevr,r'num
+					   .endc
+					  .endm
+					   .if idn #chnevr,#0
+					     clr r1
+					   .iff
+					    .lif nb #chnevr
+	015520	012701	007644		     mov #chnevr,r1
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn #%cptyi,#0
+					     clr r'num
+					   .iff
+					    .lif nb #%cptyi
+					     mov #%cptyi,r'num
+					   .endc
+					  .endm
+					   .if idn #%cptyi,#0
+					     clr r2
+					   .iff
+					    .lif nb #%cptyi
+	015524	012702	100000		     mov #%cptyi,r2
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn r5,#0
+					     clr r'num
+					   .iff
+					    .lif nb r5
+					     mov r5,r'num
+					   .endc
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 318
+	MINSRC:COMPRO PALX	Page 1.7 	Command Processor
+
+					  .endm
+					   .if idn r5,#0
+					     clr r3
+					   .iff
+					    .lif nb r5
+	015530	010503			     mov r5,r3
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r4
+					   .iff
+					    .lif nb 
+					     mov ,r4
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r5
+					   .iff
+					    .lif nb 
+					     mov ,r5
+					   .endc
+	015532	062703	000000			add #$cpevn,r3
+	015536	104346				.ioctl
+						.regs $cptyo(r5),#chnevx,#%cptyo
+					 .irp arg,<$cptyo(r5),#chnevx,#%cptyo,,,>
+					  .irp num,\.irpcnt
+					   .if idn arg,#0
+					     clr r'num
+					   .iff
+					    .lif nb arg
+					     mov arg,r'num
+					   .endc
+					  .endm
+					 .endm
+					  .irp num,\.irpcnt
+					   .if idn $cptyo(r5),#0
+					     clr r'num
+					   .iff
+					    .lif nb $cptyo(r5)
+					     mov $cptyo(r5),r'num
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 319
+	MINSRC:COMPRO PALX	Page 1.8 	Command Processor
+
+					   .endc
+					  .endm
+					   .if idn $cptyo(r5),#0
+					     clr r0
+					   .iff
+					    .lif nb $cptyo(r5)
+	015540	016500	000010		     mov $cptyo(r5),r0
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn #chnevx,#0
+					     clr r'num
+					   .iff
+					    .lif nb #chnevx
+					     mov #chnevx,r'num
+					   .endc
+					  .endm
+					   .if idn #chnevx,#0
+					     clr r1
+					   .iff
+					    .lif nb #chnevx
+	015544	012701	007630		     mov #chnevx,r1
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn #%cptyo,#0
+					     clr r'num
+					   .iff
+					    .lif nb #%cptyo
+					     mov #%cptyo,r'num
+					   .endc
+					  .endm
+					   .if idn #%cptyo,#0
+					     clr r2
+					   .iff
+					    .lif nb #%cptyo
+	015550	012702	040000		     mov #%cptyo,r2
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r3
+					   .iff
+					    .lif nb 
+					     mov ,r3
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 320
+	MINSRC:COMPRO PALX	Page 1.9 	Command Processor
+
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r4
+					   .iff
+					    .lif nb 
+					     mov ,r4
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r5
+					   .iff
+					    .lif nb 
+					     mov ,r5
+					   .endc
+	015554	104346				.ioctl			;r3 still set to $cpevn(r5)
+						call cphelp		;print out help message
+	015556	004767	001274			jsr pc,cphelp
+						call cpcold		;and cold boot message
+	015562	004767	002642			jsr pc,cpcold
+					loop <
+					  lock 7
+					  mov $cpevn(r5),$cpevs(r5)	;save event flag
+					  if eq,<
+					    unlock
+					    .regs #hng.ne,#zero,r5
+					    add #$cpevn,r2
+					    .hang
+					    rptl
+					    >
+					  clr $cpevn(r5)
+					  unlock
+					  loop <
+					    .regs $cptyi(r5)
+					    .bin
+					    bit #%clnhh,$clmod(r0)	;no hang happen?
+					    if eq,<
+					      call @$cpcon(r5)
+					      rptl
+					    > >
+					  bit  #%cpmsg, $cpevn(r5)	; Message waiting?
+					  if ne,<
+					     call cp$msg
+						>
+					  call cp$htb		;do host to buffer
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 321
+	MINSRC:COMPRO PALX	Page 1.10 	Command Processor
+
+					  call cp$btt		;do buffer to tty
+					  rptl
+						  >
+		000047				%loopn===%loopn+1
+		170050				.if gt  %loopn-7777
+						 .error Too many loops (maximum of 4095)
+						 .mexit
+						 .endc
+		000001				%level===%level+1
+		177772				.if gt  %level-7
+						 .error Loop depth exceeds 7
+						 .mexit
+						 .endc
+						.irp n,\%level
+						  %y'n===%loopn
+						  .endm
+		000047				  %y1===%loopn
+						.irp n,\%loopn
+						  %l'n===.		; loop back to here
+						  
+						  lock 7
+						  mov $cpevn(r5),$cpevs(r5)	;save event flag
+						  if eq,<
+						    unlock
+						    .regs #hng.ne,#zero,r5
+						    add #$cpevn,r2
+						    .hang
+						    rptl
+						    >
+						  clr $cpevn(r5)
+						  unlock
+						  loop <
+						    .regs $cptyi(r5)
+						    .bin
+						    bit #%clnhh,$clmod(r0)	;no hang happen?
+						    if eq,<
+						      call @$cpcon(r5)
+						      rptl
+						    > >
+						  bit  #%cpmsg, $cpevn(r5)	; Message waiting?
+						  if ne,<
+						     call cp$msg
+							>
+						  call cp$htb		;do host to buffer
+						  call cp$btt		;do buffer to tty
+						  rptl
+						  
+						  %x'n===.		; exit to here
+						  .endm
+		015566				  %l47===.		; loop back to here
+						  
+						  lock 7
+	015566	106746				mfps -(sp)
+						spl 7
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 322
+	MINSRC:COMPRO PALX	Page 1.11 	Command Processor
+
+	015574	016565	000000	000002		  mov $cpevn(r5),$cpevs(r5)	;save event flag
+					  if eq,<
+					    unlock
+					    .regs #hng.ne,#zero,r5
+					    add #$cpevn,r2
+					    .hang
+					    rptl
+						    >
+	015630	005065	000000			  clr $cpevn(r5)
+						  unlock
+	015634	106426				mtps (sp)+
+					  loop <
+					    .regs $cptyi(r5)
+					    .bin
+					    bit #%clnhh,$clmod(r0)	;no hang happen?
+					    if eq,<
+					      call @$cpcon(r5)
+					      rptl
+						    > >
+		000050				%loopn===%loopn+1
+		170051				.if gt  %loopn-7777
+						 .error Too many loops (maximum of 4095)
+						 .mexit
+						 .endc
+		000002				%level===%level+1
+		177773				.if gt  %level-7
+						 .error Loop depth exceeds 7
+						 .mexit
+						 .endc
+						.irp n,\%level
+						  %y'n===%loopn
+						  .endm
+		000050				  %y2===%loopn
+						.irp n,\%loopn
+						  %l'n===.		; loop back to here
+						  
+						    .regs $cptyi(r5)
+						    .bin
+						    bit #%clnhh,$clmod(r0)	;no hang happen?
+						    if eq,<
+						      call @$cpcon(r5)
+						      rptl
+						    > 
+						  %x'n===.		; exit to here
+						  .endm
+		015636				  %l50===.		; loop back to here
+						  
+						    .regs $cptyi(r5)
+					 .irp arg,<$cptyi(r5),,,,,>
+					  .irp num,\.irpcnt
+					   .if idn arg,#0
+					     clr r'num
+					   .iff
+					    .lif nb arg
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 323
+	MINSRC:COMPRO PALX	Page 1.12 	Command Processor
+
+					     mov arg,r'num
+					   .endc
+					  .endm
+					 .endm
+					  .irp num,\.irpcnt
+					   .if idn $cptyi(r5),#0
+					     clr r'num
+					   .iff
+					    .lif nb $cptyi(r5)
+					     mov $cptyi(r5),r'num
+					   .endc
+					  .endm
+					   .if idn $cptyi(r5),#0
+					     clr r0
+					   .iff
+					    .lif nb $cptyi(r5)
+	015636	016500	000006		     mov $cptyi(r5),r0
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r1
+					   .iff
+					    .lif nb 
+					     mov ,r1
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r2
+					   .iff
+					    .lif nb 
+					     mov ,r2
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 324
+	MINSRC:COMPRO PALX	Page 1.13 	Command Processor
+
+					   .if idn ,#0
+					     clr r3
+					   .iff
+					    .lif nb 
+					     mov ,r3
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r4
+					   .iff
+					    .lif nb 
+					     mov ,r4
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r5
+					   .iff
+					    .lif nb 
+					     mov ,r5
+					   .endc
+	015642	104376				    .bin
+	015644	032760	040000	000010		    bit #%clnhh,$clmod(r0)	;no hang happen?
+					    if eq,<
+					      call @$cpcon(r5)
+					      rptl
+						    > 
+		015662				  %x50===.		; exit to here
+		000001				%level===%level-1
+	015662	032765	004000	000000		  bit  #%cpmsg, $cpevn(r5)	; Message waiting?
+					  if ne,<
+					     call cp$msg
+							>
+						  call cp$htb		;do host to buffer
+	015676	004767	000100			jsr pc,cp$htb
+						  call cp$btt		;do buffer to tty
+	015702	004767	000002			jsr pc,cp$btt
+						  rptl
+		000001				.if eq  %level
+						 .error	RPTL not inside LOOP
+						 .mexit
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 325
+	MINSRC:COMPRO PALX	Page 1.14 	Command Processor
+
+						 .endc
+						.irp n1,\%level
+						  .irp n2,\%y'n1
+						    .iif b  ,	br %l'n2
+						    .ielse		b %l'n2
+						    .endm
+						  .endm
+						  .irp n2,\%y1
+						    .iif b  ,	br %l'n2
+						    .ielse		b %l'n2
+						    .endm
+	015706	000727				    .iif b  ,	br %l47
+						    .ielse		b %l47
+						  
+		015710				  %x47===.		; exit to here
+		000000				%level===%level-1
+					
+	015710	016502	000072		cp$btt:	mov $cphsc(r5),r2	;get count
+					if ne,<
+					  .regs $cptyo(r5),$cphsp(r5)	;tty output and pointer
+					  push $clmod(r0)	;save modes
+					  movb $cphsm(r5),$clmod(r0)	;mode for the host
+					  bis #%clnhg,$clmod(r0)	;don't hang
+					  call @$cphic(r5)	;call the host input continuation
+					  if cs,<bpt>
+					  pop $clmod(r0)	;restore modes
+					  mov r2,$cphsc(r5)	;set number of characters still in buffer
+					  if ne,<
+					    mov $cphsp(r5),r3
+					    loop <		;move the characters down
+					      movb (r1)+,(r3)+
+					      sorl r2
+					      >
+					    >
+						  >
+						return
+	016000	000207				rts pc
+					
+	016002	016500	000012		cp$htb:	mov $cphsi(r5),r0	;get host input channel
+					if ne,<
+					  .regs ,$cphsp(r5),#l$cpbf,$cphsc(r5)
+					  add r3,r1		;point to end of buffer
+					  mov r2,$cphsc(r5)	;expect a full buffer
+					  sub r3,r2		;number of characters to try and read
+					  bis #%clnhg,$clmod(r0)	;don't hang on input
+					  .sin
+					  if cs,<
+					    push r2
+					    call cp$clh		;close the host
+					    pop r2
+					    >
+					  sub r2,$cphsc(r5)	;didn't read some
+						  >
+						return
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 326
+	MINSRC:COMPRO PALX	Page 1.15 	Command Processor
+
+	016062	000207				rts pc
+					
+					cp$clh:	push #0
+	016066	016500	000014			mov $cphso(r5),r0
+					if ne,<
+					  clr $cphso(r5)
+					  .close
+					  inc (sp)
+						  >
+	016104	016500	000012			mov $cphsi(r5),r0
+					if ne,<
+					  clr $cphsi(r5)
+					  .close
+					  inc (sp)
+						  >
+						.regs $cptyo(r5)
+					 .irp arg,<$cptyo(r5),,,,,>
+					  .irp num,\.irpcnt
+					   .if idn arg,#0
+					     clr r'num
+					   .iff
+					    .lif nb arg
+					     mov arg,r'num
+					   .endc
+					  .endm
+					 .endm
+					  .irp num,\.irpcnt
+					   .if idn $cptyo(r5),#0
+					     clr r'num
+					   .iff
+					    .lif nb $cptyo(r5)
+					     mov $cptyo(r5),r'num
+					   .endc
+					  .endm
+					   .if idn $cptyo(r5),#0
+					     clr r0
+					   .iff
+					    .lif nb $cptyo(r5)
+	016122	016500	000010		     mov $cptyo(r5),r0
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r1
+					   .iff
+					    .lif nb 
+					     mov ,r1
+					   .endc
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 327
+	MINSRC:COMPRO PALX	Page 1.16 	Command Processor
+
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r2
+					   .iff
+					    .lif nb 
+					     mov ,r2
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r3
+					   .iff
+					    .lif nb 
+					     mov ,r3
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r4
+					   .iff
+					    .lif nb 
+					     mov ,r4
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r5
+					   .iff
+					    .lif nb 
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 328
+	MINSRC:COMPRO PALX	Page 1.17 	Command Processor
+
+					     mov ,r5
+					   .endc
+	016126	005726				tst (sp)+
+						if ne,<mov #100$,r1>	;close it
+						else  <mov #110$,r1>	;already closed
+		001172				gncnt===gncnt+1
+						.irp foo,\ifcnt
+						.irp bar,\gncnt
+						br g'bar
+					g'foo===.
+						mov #110$,r1
+					g'bar===.
+						.endm
+						.endm
+						.irp bar,\gncnt
+						br g'bar
+					g1171===.
+						mov #110$,r1
+					g'bar===.
+						.endm
+	016136	000402				br g1172
+		016140			g1171===.
+	016140	012701	016212			mov #110$,r1
+		016144			g1172===.
+	016144	104366				.soutz
+		016146			cp$cl2=.
+	016146	012765	010454	000016		mov #cpopj,$cphoc(r5)	;host output does nothing
+						return
+	016154	000207				rts pc
+					
+	016156	   207		
+	016157	   133		
+	016160	   110		
+	016161	   157		
+	016162	   163		
+	016163	   164		
+	016164	   040		
+	016165	   143		
+	016166	   157		
+	016167	   156		
+	016170	   156		
+	016171	   145		
+	016172	   143		
+	016173	   164		
+	016174	   151		
+	016175	   157		
+	016176	   156		
+	016177	   040		
+	016200	   143		
+	016201	   154		
+	016202	   157		
+	016203	   163		
+	016204	   145		
+	016205	   144		
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 329
+	MINSRC:COMPRO PALX	Page 1.18 	Command Processor
+
+	016206	   056		
+	016207	   135		
+	016210	   207		
+	016211	   000		
+					100$:	.asciz <%tdcrl>/[Host connection closed.]/<%tdcrl>
+	016212	   207		
+	016213	   133		
+	016214	   103		
+	016215	   157		
+	016216	   156		
+	016217	   156		
+	016220	   145		
+	016221	   143		
+	016222	   164		
+	016223	   151		
+	016224	   157		
+	016225	   156		
+	016226	   040		
+	016227	   141		
+	016230	   154		
+	016231	   162		
+	016232	   145		
+	016233	   141		
+	016234	   144		
+	016235	   171		
+	016236	   040		
+	016237	   143		
+	016240	   154		
+	016241	   157		
+	016242	   163		
+	016243	   145		
+	016244	   144		
+	016245	   056		
+	016246	   135		
+	016247	   207		
+	016250	   000		
+					110$:	.asciz <%tdcrl>/[Connection already closed.]/<%tdcrl>
+		016252				.even
+					
+					cp$wti:				;wait for character input
+						pop $cpcon(r5)
+						return
+	016256	000207				rts pc
+					cp$lfn:				;logically finished with command
+						call cp$wti		;wait for input and fall through
+	016260	004767	177766			jsr pc,cp$wti
+	016264	010102			cp$tyi:	mov r1,r2
+	016266	042702	177600			bic #mask7,r2
+	016272	020227	000034			cmp r2,#%acom	
+						if eq,<jcall cp$com>
+						jcall @$cphoc(r5)	;output the character to the host
+	016304	000175	000016			jmp @$cphoc(r5)
+					
+	016310	104370			cp$hic:	.sout
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 330
+	MINSRC:COMPRO PALX	Page 1.19 	Command Processor
+
+						return
+	016312	000207				rts pc
+					
+					cp$hso:				;standard routine to output to a host
+	016314	016500	000014			mov $cphso(r5),r0
+					if ne,<
+					  .bout
+					  if cs,<
+					    .regs $cptyo(r5),(pc)+
+					      .litrl <
+						.byte %tdcrl,%tdcrl
+						.ascii /Host connection gone./
+						.byte %tdcrl,%tdcrl,0
+						>
+					    .soutz
+					    call cp$clh		;close the host channels
+						  > >
+						return
+	016344	000207				rts pc
+					
+					
+	016346	005065	000100		cp$com:	clr $cpnum(r5)		;no number yet
+	016352	005065	000074			clr $cpoct(r5)
+	016356	005065	000076			clr $cpdec(r5)
+					cp$cm1:	call cp$wti		;wait for input
+	016362	004767	177664			jsr pc,cp$wti
+						call cp$lfn		;pretend logically finished (this may change)
+	016366	004767	177666			jsr pc,cp$lfn
+	016372	042701	177600			bic #mask7,r1		;completely 7-ascii now
+	016376	120127	000034			cmpb r1,#%acom
+						if eq,<jcall @$cphoc(r5)>	;output to host
+						push r1
+						call upcase
+	016412	004767	172040			jsr pc,upcase
+						pop r2
+	016420	120227	000172			cmpb r2,#'z
+						if ge,<sub #<'z+1-'a>,r2>
+	016432	006302				asl r2
+						jcall @10$(r2)
+	016434	000172	016440			jmp @10$(r2)
+					
+					
+	016440	010454			10$:	nopsub			;000 ^@
+	016442	010454				nopsub			;001 ^A
+	016444	021670				reboot			;002 ^B
+	016446	010454				nopsub			;003 ^C
+	016450	010454				nopsub			;004 ^D
+	016452	020506				encap			;005 ^E
+	016454	010454				nopsub			;006 ^F
+	016456	010454				nopsub			;007 ^G
+					
+	016460	010454				nopsub			;010 ^H
+	016462	010454				nopsub			;011 ^I
+	016464	010454				nopsub			;012 ^J
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 331
+	MINSRC:COMPRO PALX	Page 1.20 	Command Processor
+
+	016466	010454				nopsub			;013 ^K
+	016470	017032				110$			;014 ^L
+	016472	010454				nopsub			;015 ^M
+	016474	020644				doitup			;016 ^N
+	016476	010454				nopsub			;017 ^O
+					
+	016500	010454				nopsub			;020 ^P
+	016502	010454				nopsub			;021 ^Q
+	016504	021716				maint			;022 ^R
+	016506	010454				nopsub			;023 ^S
+	016510	022250				cpttyp			;024 ^T
+	016512	010454				nopsub			;025 ^U
+	016514	010454				nopsub			;026 ^V
+	016516	010454				nopsub			;027 ^W
+					
+	016520	010454				nopsub			;030 ^X
+	016522	010454				nopsub			;031 ^Y
+	016524	022570				hakcon ;hack a connection			;032 ^Z
+	016526	010454				nopsub			;033 ^[  ==  ESC
+	016530	010454				nopsub			;034 ^\
+	016532	010454				nopsub			;035 ^]
+	016534	010454				nopsub			;036 ^^
+	016536	010454				nopsub			;037 ^_
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 332
+	MINSRC:COMPRO PALX	Page 2 	Command Processor
+
+					
+	016540	010454				nopsub			;040   (space)
+	016542	010454				nopsub			;041 !
+	016544	010454				nopsub			;042 "
+	016546	010454				nopsub			;043 #
+	016550	010454				nopsub			;044 $
+	016552	010454				nopsub			;045 %
+	016554	020530				login			;046 &
+	016556	010454				nopsub			;047 '
+					
+	016560	010454				nopsub			;050 (
+	016562	010454				nopsub			;051 )
+	016564	010454				nopsub			;052 *
+	016566	010454				nopsub			;053 +
+	016570	010454				nopsub			;054 ,
+	016572	010454				nopsub			;055 -
+	016574	010454				nopsub			;056 .
+	016576	010454				nopsub			;057 /
+					
+	016600	016754				100$			;060 0  (saves inventing a six character label)
+	016602	016754				100$			;061 1  (collects numeric arg, both octal
+	016604	016754				100$			;062 2  (and decimal)
+	016606	016754				100$			;063 3
+	016610	016754				100$			;064 4
+	016612	016754				100$			;065 5
+	016614	016754				100$			;066 6
+	016616	016754				100$			;067 7
+					
+	016620	016754				100$			;070 8
+	016622	016754				100$			;071 9
+	016624	010454				nopsub			;072 :
+	016626	010454				nopsub			;073 ;
+	016630	010454				nopsub			;074 <
+	016632	010454				nopsub			;075 =
+	016634	010454				nopsub			;076 >
+	016636	017056				cphelp			;077 ?  (give help message)
+					
+	016640	010454				nopsub			;100 @
+	016642	010454				nopsub			;101 A
+	016644	017046				sndbrk			;102 B
+	016646	010454				nopsub			;103 C
+	016650	023426				atkcon			;104 D
+	016652	010454				nopsub			;105 E
+	016654	023650				rfinger			;106 F
+		010454			%%==nopsub			;assume non-symbolics
+		177733			.iif ge system-60, .iif le system-67, %%==gtkcon
+	016656	010454				%%			;107 G
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 333
+	MINSRC:COMPRO PALX	Page 3 	Command Processor
+
+					
+	016660	010454				nopsub			;110 H
+	016662	010454				nopsub			;111 I
+	016664	010454				nopsub			;112 J
+	016666	016064				cp$clh			;113 K close current connections
+	016670	010454				nopsub			;114 L
+	016672	010454				nopsub			;115 M
+	016674	010454				nopsub			;116 N
+	016676	010454				nopsub			;117 O
+					
+	016700	010454				nopsub			;120 P
+	016702	010454				nopsub			;121 Q
+	016704	010454				nopsub			;122 R
+	016706	010454				nopsub			;123 S
+	016710	024130				telnet			;124 T  do a telnet connection
+	016712	023430				ttylnk			;125 U  do a TTYLINK connection
+	016714	010454				nopsub			;126 V
+	016716	010454				nopsub			;127 W
+					
+	016720	010454				nopsub			;130 X
+	016722	010454				nopsub			;131 Y
+	016724	010454				nopsub			;132 Z
+	016726	010454				nopsub			;133 [
+	016730	010454				nopsub			;134 \
+	016732	010454				nopsub			;135 ]
+	016734	010454				nopsub			;136 ^
+	016736	010454				nopsub			;137 _
+					
+	016740	010454				nopsub			;140 `
+	016742	010454				nopsub			;173 {
+	016744	010454				nopsub			;174 |
+	016746	010454				nopsub			;175 }
+	016750	021654				fake			;176 ~
+	016752	010454				nopsub			;177 DEL
+					
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 334
+	MINSRC:COMPRO PALX	Page 4 	Command Processor
+
+					
+					
+					100$:				;collect a number
+	016754	012765	177777	000100		mov #-1,$cpnum(r5)
+	016762	006202				asr r2
+	016764	162702	000060			sub #'0,r2
+	016770	016503	000076			mov $cpdec(r5),r3
+	016774	070327	000012			mul #10.,r3
+	017000	060203				add r2,r3
+	017002	010365	000076			mov r3,$cpdec(r5)
+	017006	006365	000074			asl $cpoct(r5)
+	017012	006365	000074			asl $cpoct(r5)
+	017016	006365	000074			asl $cpoct(r5)
+	017022	060265	000074			add r2,$cpoct(r5)
+						jcall cp$cm1		;keep collecting
+	017026	000167	177330			jmp cp$cm1
+					
+					110$:	.regs $cptyo(r5),#%tdclr	;clear the screen
+					 .irp arg,<$cptyo(r5),#%tdclr,,,,>
+					  .irp num,\.irpcnt
+					   .if idn arg,#0
+					     clr r'num
+					   .iff
+					    .lif nb arg
+					     mov arg,r'num
+					   .endc
+					  .endm
+					 .endm
+					  .irp num,\.irpcnt
+					   .if idn $cptyo(r5),#0
+					     clr r'num
+					   .iff
+					    .lif nb $cptyo(r5)
+					     mov $cptyo(r5),r'num
+					   .endc
+					  .endm
+					   .if idn $cptyo(r5),#0
+					     clr r0
+					   .iff
+					    .lif nb $cptyo(r5)
+	017032	016500	000010		     mov $cptyo(r5),r0
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn #%tdclr,#0
+					     clr r'num
+					   .iff
+					    .lif nb #%tdclr
+					     mov #%tdclr,r'num
+					   .endc
+					  .endm
+					   .if idn #%tdclr,#0
+					     clr r1
+					   .iff
+					    .lif nb #%tdclr
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 335
+	MINSRC:COMPRO PALX	Page 4.1 	Command Processor
+
+	017036	012701	000220		     mov #%tdclr,r1
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r2
+					   .iff
+					    .lif nb 
+					     mov ,r2
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r3
+					   .iff
+					    .lif nb 
+					     mov ,r3
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r4
+					   .iff
+					    .lif nb 
+					     mov ,r4
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r5
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 336
+	MINSRC:COMPRO PALX	Page 4.2 	Command Processor
+
+					   .iff
+					    .lif nb 
+					     mov ,r5
+					   .endc
+	017042	104374				.bout
+						return
+	017044	000207				rts pc
+					
+	017046	012701	004102		sndbrk:	mov #%txtop+'B,r1
+						jcall @$cphoc(r5)	;output to the host
+	017052	000175	000016			jmp @$cphoc(r5)
+					
+	017056	104020			cphelp:	.cnsget			;get terminal charactistics
+						if cs,<halt>
+	017064	010001				mov r0,r1		;into r1
+						.regs $cptyo(r5),ttyist(r1)	;get tty and initial string
+					 .irp arg,<$cptyo(r5),ttyist(r1),,,,>
+					  .irp num,\.irpcnt
+					   .if idn arg,#0
+					     clr r'num
+					   .iff
+					    .lif nb arg
+					     mov arg,r'num
+					   .endc
+					  .endm
+					 .endm
+					  .irp num,\.irpcnt
+					   .if idn $cptyo(r5),#0
+					     clr r'num
+					   .iff
+					    .lif nb $cptyo(r5)
+					     mov $cptyo(r5),r'num
+					   .endc
+					  .endm
+					   .if idn $cptyo(r5),#0
+					     clr r0
+					   .iff
+					    .lif nb $cptyo(r5)
+	017066	016500	000010		     mov $cptyo(r5),r0
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ttyist(r1),#0
+					     clr r'num
+					   .iff
+					    .lif nb ttyist(r1)
+					     mov ttyist(r1),r'num
+					   .endc
+					  .endm
+					   .if idn ttyist(r1),#0
+					     clr r1
+					   .iff
+					    .lif nb ttyist(r1)
+	017072	016101	053152		     mov ttyist(r1),r1
+					   .endc
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 337
+	MINSRC:COMPRO PALX	Page 4.3 	Command Processor
+
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r2
+					   .iff
+					    .lif nb 
+					     mov ,r2
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r3
+					   .iff
+					    .lif nb 
+					     mov ,r3
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r4
+					   .iff
+					    .lif nb 
+					     mov ,r4
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r5
+					   .iff
+					    .lif nb 
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 338
+	MINSRC:COMPRO PALX	Page 4.4 	Command Processor
+
+					     mov ,r5
+					   .endc
+	017076	104366				.soutz			;send the initial string
+						.regs $cptyo(r5),#10$
+					 .irp arg,<$cptyo(r5),#10$,,,,>
+					  .irp num,\.irpcnt
+					   .if idn arg,#0
+					     clr r'num
+					   .iff
+					    .lif nb arg
+					     mov arg,r'num
+					   .endc
+					  .endm
+					 .endm
+					  .irp num,\.irpcnt
+					   .if idn $cptyo(r5),#0
+					     clr r'num
+					   .iff
+					    .lif nb $cptyo(r5)
+					     mov $cptyo(r5),r'num
+					   .endc
+					  .endm
+					   .if idn $cptyo(r5),#0
+					     clr r0
+					   .iff
+					    .lif nb $cptyo(r5)
+	017100	016500	000010		     mov $cptyo(r5),r0
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn #10$,#0
+					     clr r'num
+					   .iff
+					    .lif nb #10$
+					     mov #10$,r'num
+					   .endc
+					  .endm
+					   .if idn #10$,#0
+					     clr r1
+					   .iff
+					    .lif nb #10$
+	017104	012701	017114		     mov #10$,r1
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r2
+					   .iff
+					    .lif nb 
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 339
+	MINSRC:COMPRO PALX	Page 4.5 	Command Processor
+
+					     mov ,r2
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r3
+					   .iff
+					    .lif nb 
+					     mov ,r3
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r4
+					   .iff
+					    .lif nb 
+					     mov ,r4
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r5
+					   .iff
+					    .lif nb 
+					     mov ,r5
+					   .endc
+	017110	104366				.soutz
+						return
+	017112	000207				rts pc
+					
+					10$:
+	017114	   220		
+					.ascii <%tdclr>
+	017115	   124		
+	017116	   150		
+	017117	   151		
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 340
+	MINSRC:COMPRO PALX	Page 4.6 	Command Processor
+
+	017120	   163		
+	017121	   040		
+	017122	   120		
+	017123	   104		
+	017124	   120		
+	017125	   055		
+	017126	   061		
+	017127	   061		
+	017130	   040		
+	017131	   151		
+	017132	   163		
+	017133	   040		
+					.ascii /This PDP-11 is /
+					%host%				;ascii format (not ascihoser)
+	017134	   105		
+	017135	   105		
+	017136	   040		
+	017137	   106		
+	017140	   162		
+	017141	   141		
+	017142	   156		
+	017143	   153		
+	017144	   171		
+	017145	   055		
+	017146	   115		
+	017147	   157		
+	017150	   165		
+	017151	   163		
+	017152	   145		
+					    .ascii \EE Franky-Mouse\
+	017153	   207			.byte <%tdcrl>
+	017154	   124		
+	017155	   157		
+	017156	   040		
+	017157	   143		
+	017160	   157		
+	017161	   156		
+	017162	   156		
+	017163	   145		
+	017164	   143		
+	017165	   164		
+	017166	   040		
+	017167	   164		
+	017170	   157		
+	017171	   040		
+	017172	   141		
+	017173	   040		
+	017174	   155		
+	017175	   141		
+	017176	   143		
+	017177	   150		
+	017200	   151		
+	017201	   156		
+	017202	   145		
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 341
+	MINSRC:COMPRO PALX	Page 4.7 	Command Processor
+
+	017203	   054		
+	017204	   040		
+	017205	   164		
+	017206	   171		
+	017207	   160		
+	017210	   145		
+	017211	   040		
+	017212	   040		
+	017213	   103		
+	017214	   055		
+	017215	   134		
+	017216	   040		
+	017217	   074		
+	017220	   156		
+	017221	   165		
+	017222	   155		
+	017223	   142		
+	017224	   145		
+	017225	   162		
+	017226	   076		
+	017227	   040		
+	017230	   074		
+	017231	   160		
+	017232	   162		
+	017233	   157		
+	017234	   164		
+	017235	   157		
+	017236	   143		
+	017237	   157		
+	017240	   154		
+	017241	   076		
+	017242	   207		
+					.ascii /To connect to a machine, type  C-\ <number> <protocol>/<%tdcrl>
+	017243	   167		
+	017244	   150		
+	017245	   145		
+	017246	   162		
+	017247	   145		
+	017250	   040		
+	017251	   074		
+	017252	   156		
+	017253	   165		
+	017254	   155		
+	017255	   142		
+	017256	   145		
+	017257	   162		
+	017260	   076		
+	017261	   040		
+	017262	   151		
+	017263	   163		
+	017264	   040		
+	017265	   157		
+	017266	   156		
+	017267	   145		
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 342
+	MINSRC:COMPRO PALX	Page 4.8 	Command Processor
+
+	017270	   040		
+	017271	   157		
+	017272	   146		
+	017273	   207		
+					.ascii /where <number> is one of/<%tdcrl>
+						comdoc
+	017274	   040		
+	017275	   040		
+	017276	   040		
+	017277	   060		
+	017300	   040		
+	017301	   115		
+	017302	   111		
+	017303	   124		
+	017304	   055		
+	017305	   115		
+	017306	   103		
+	017307	   040		
+	017310	   040		
+	017311	   040		
+	017312	   040		
+	017313	   040		
+	017314	   040		
+	017315	   067		
+	017316	   040		
+	017317	   040		
+	017320	   115		
+	017321	   111		
+	017322	   124		
+	017323	   055		
+	017324	   126		
+	017325	   130		
+	017326	   040		
+	017327	   040		
+	017330	   040		
+	017331	   040		
+	017332	   040		
+	017333	   040		
+	017334	   061		
+	017335	   064		
+	017336	   040		
+	017337	   040		
+	017340	   115		
+	017341	   111		
+	017342	   124		
+	017343	   055		
+	017344	   117		
+	017345	   132		
+	017346	   040		
+	017347	   040		
+	017350	   040		
+	017351	   040		
+	017352	   040		
+	017353	   040		
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 343
+	MINSRC:COMPRO PALX	Page 4.9 	Command Processor
+
+	017354	   040		
+	017355	   040		
+	017356	   062		
+	017357	   061		
+	017360	   040		
+	017361	   040		
+	017362	   115		
+	017363	   111		
+	017364	   124		
+	017365	   055		
+	017366	   110		
+	017367	   124		
+	017370	   126		
+	017371	   101		
+	017372	   130		
+	017373	   207		
+					.ascii /   0 MIT-MC      7  MIT-VX      14  MIT-OZ        21  MIT-HTVAX/<%tdcrl>
+	017374	   040		
+	017375	   040		
+	017376	   040		
+	017377	   061		
+	017400	   040		
+	017401	   115		
+	017402	   111		
+	017403	   124		
+	017404	   055		
+	017405	   120		
+	017406	   122		
+	017407	   105		
+	017410	   120		
+	017411	   040		
+	017412	   040		
+	017413	   040		
+	017414	   040		
+	017415	   070		
+	017416	   040		
+	017417	   040		
+	017420	   123		
+	017421	   103		
+	017422	   122		
+	017423	   103		
+	017424	   055		
+	017425	   124		
+	017426	   105		
+	017427	   116		
+	017430	   105		
+	017431	   130		
+	017432	   040		
+	017433	   040		
+	017434	   061		
+	017435	   065		
+	017436	   040		
+	017437	   040		
+	017440	   123		
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 344
+	MINSRC:COMPRO PALX	Page 4.10 	Command Processor
+
+	017441	   103		
+	017442	   122		
+	017443	   103		
+	017444	   055		
+	017445	   103		
+	017446	   157		
+	017447	   155		
+	017450	   145		
+	017451	   164		
+	017452	   040		
+	017453	   040		
+	017454	   040		
+	017455	   040		
+	017456	   062		
+	017457	   062		
+	017460	   040		
+	017461	   040		
+	017462	   123		
+	017463	   103		
+	017464	   122		
+	017465	   103		
+	017466	   055		
+	017467	   103		
+	017470	   125		
+	017471	   120		
+	017472	   111		
+	017473	   104		
+	017474	   207		
+					.ascii /   1 MIT-PREP    8  SCRC-TENEX  15  SCRC-Comet    22  SCRC-CUPID/<%tdcrl>
+	017475	   040		
+	017476	   040		
+	017477	   040		
+	017500	   062		
+	017501	   040		
+	017502	   115		
+	017503	   111		
+	017504	   124		
+	017505	   055		
+	017506	   105		
+	017507	   105		
+	017510	   040		
+	017511	   040		
+	017512	   040		
+	017513	   040		
+	017514	   040		
+	017515	   040		
+	017516	   071		
+	017517	   040		
+	017520	   040		
+	017521	   115		
+	017522	   111		
+	017523	   124		
+	017524	   055		
+	017525	   115		
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 345
+	MINSRC:COMPRO PALX	Page 4.11 	Command Processor
+
+	017526	   165		
+	017527	   154		
+	017530	   164		
+	017531	   151		
+	017532	   143		
+	017533	   163		
+	017534	   040		
+	017535	   061		
+	017536	   066		
+	017537	   040		
+	017540	   040		
+	017541	   115		
+	017542	   111		
+	017543	   124		
+	017544	   055		
+	017545	   105		
+	017546	   104		
+	017547	   104		
+	017550	   111		
+	017551	   105		
+	017552	   040		
+	017553	   040		
+	017554	   040		
+	017555	   040		
+	017556	   040		
+	017557	   062		
+	017560	   063		
+	017561	   040		
+	017562	   040		
+	017563	   123		
+	017564	   103		
+	017565	   110		
+	017566	   055		
+	017567	   103		
+	017570	   117		
+	017571	   131		
+	017572	   117		
+	017573	   124		
+	017574	   105		
+	017575	   207		
+					.ascii /   2 MIT-EE      9  MIT-Multics 16  MIT-EDDIE     23  SCH-COYOTE/<%tdcrl>
+	017576	   040		
+	017577	   040		
+	017600	   040		
+	017601	   063		
+	017602	   040		
+	017603	   115		
+	017604	   111		
+	017605	   124		
+	017606	   055		
+	017607	   123		
+	017610	   120		
+	017611	   105		
+	017612	   105		
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 346
+	MINSRC:COMPRO PALX	Page 4.12 	Command Processor
+
+	017613	   103		
+	017614	   110		
+	017615	   040		
+	017616	   061		
+	017617	   060		
+	017620	   040		
+	017621	   040		
+	017622	   115		
+	017623	   111		
+	017624	   124		
+	017625	   055		
+	017626	   103		
+	017627	   103		
+	017630	   103		
+	017631	   040		
+	017632	   040		
+	017633	   040		
+	017634	   040		
+	017635	   040		
+	017636	   061		
+	017637	   067		
+	017640	   040		
+	017641	   040		
+	017642	   115		
+	017643	   111		
+	017644	   124		
+	017645	   055		
+	017646	   120		
+	017647	   171		
+	017650	   147		
+	017651	   155		
+	017652	   141		
+	017653	   154		
+	017654	   151		
+	017655	   157		
+	017656	   156		
+	017657	   040		
+	017660	   062		
+	017661	   064		
+	017662	   040		
+	017663	   040		
+	017664	   115		
+	017665	   111		
+	017666	   124		
+	017667	   055		
+	017670	   110		
+	017671	   145		
+	017672	   160		
+	017673	   150		
+	017674	   141		
+	017675	   145		
+	017676	   163		
+	017677	   164		
+	017700	   165		
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 347
+	MINSRC:COMPRO PALX	Page 4.13 	Command Processor
+
+	017701	   163		
+	017702	   207		
+					.ascii /   3 MIT-SPEECH 10  MIT-CCC     17  MIT-Pygmalion 24  MIT-Hephaestus/<%tdcrl>
+	017703	   040		
+	017704	   040		
+	017705	   040		
+	017706	   064		
+	017707	   040		
+	017710	   115		
+	017711	   111		
+	017712	   124		
+	017713	   055		
+	017714	   130		
+	017715	   130		
+	017716	   040		
+	017717	   040		
+	017720	   040		
+	017721	   040		
+	017722	   040		
+	017723	   061		
+	017724	   061		
+	017725	   040		
+	017726	   040		
+	017727	   115		
+	017730	   111		
+	017731	   124		
+	017732	   055		
+	017733	   122		
+	017734	   124		
+	017735	   123		
+	017736	   040		
+	017737	   040		
+	017740	   040		
+	017741	   040		
+	017742	   040		
+	017743	   061		
+	017744	   070		
+	017745	   040		
+	017746	   040		
+	017747	   115		
+	017750	   111		
+	017751	   124		
+	017752	   055		
+	017753	   103		
+	017754	   157		
+	017755	   162		
+	017756	   167		
+	017757	   151		
+	017760	   156		
+	017761	   040		
+	017762	   040		
+	017763	   040		
+	017764	   040		
+	017765	   062		
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 348
+	MINSRC:COMPRO PALX	Page 4.14 	Command Processor
+
+	017766	   065		
+	017767	   040		
+	017770	   040		
+	017771	   115		
+	017772	   111		
+	017773	   124		
+	017774	   055		
+	017775	   124		
+	017776	   141		
+	017777	   154		
+	020000	   157		
+	020001	   163		
+	020002	   207		
+					.ascii /   4 MIT-XX     11  MIT-RTS     18  MIT-Corwin    25  MIT-Talos/<%tdcrl>
+	020003	   040		
+	020004	   040		
+	020005	   040		
+	020006	   065		
+	020007	   040		
+	020010	   115		
+	020011	   111		
+	020012	   124		
+	020013	   055		
+	020014	   115		
+	020015	   141		
+	020016	   164		
+	020017	   150		
+	020020	   040		
+	020021	   040		
+	020022	   040		
+	020023	   061		
+	020024	   062		
+	020025	   040		
+	020026	   040		
+	020027	   123		
+	020030	   103		
+	020031	   122		
+	020032	   103		
+	020033	   055		
+	020034	   126		
+	020035	   111		
+	020036	   130		
+	020037	   105		
+	020040	   116		
+	020041	   040		
+	020042	   040		
+	020043	   061		
+	020044	   071		
+	020045	   040		
+	020046	   040		
+	020047	   115		
+	020050	   111		
+	020051	   124		
+	020052	   055		
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 349
+	MINSRC:COMPRO PALX	Page 4.15 	Command Processor
+
+	020053	   110		
+	020054	   124		
+	020055	   112		
+	020056	   122		
+	020057	   011		
+	020060	   040		
+	020061	   040		
+	020062	   062		
+	020063	   066		
+	020064	   040		
+	020065	   040		
+	020066	   115		
+	020067	   111		
+	020070	   124		
+	020071	   055		
+	020072	   110		
+	020073	   145		
+	020074	   141		
+	020075	   162		
+	020076	   164		
+	020077	   055		
+	020100	   157		
+	020101	   146		
+	020102	   055		
+	020103	   107		
+	020104	   157		
+	020105	   154		
+	020106	   144		
+	020107	   207		
+					.ascii /   5 MIT-Math   12  SCRC-VIXEN  19  MIT-HTJR	  26  MIT-Heart-of-Gold/<%tdcrl>
+	020110	   040		
+	020111	   040		
+	020112	   040		
+	020113	   066		
+	020114	   040		
+	020115	   115		
+	020116	   111		
+	020117	   124		
+	020120	   055		
+	020121	   115		
+	020122	   114		
+	020123	   040		
+	020124	   040		
+	020125	   040		
+	020126	   040		
+	020127	   040		
+	020130	   061		
+	020131	   063		
+	020132	   040		
+	020133	   040		
+	020134	   115		
+	020135	   111		
+	020136	   124		
+	020137	   055		
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 350
+	MINSRC:COMPRO PALX	Page 4.16 	Command Processor
+
+	020140	   120		
+	020141	   106		
+	020142	   103		
+	020143	   055		
+	020144	   126		
+	020145	   101		
+	020146	   130		
+	020147	   040		
+	020150	   062		
+	020151	   060		
+	020152	   040		
+	020153	   040		
+	020154	   115		
+	020155	   111		
+	020156	   124		
+	020157	   055		
+	020160	   117		
+	020161	   142		
+	020162	   145		
+	020163	   162		
+	020164	   157		
+	020165	   156		
+	020166	   207		
+					.ascii /   6 MIT-ML     13  MIT-PFC-VAX 20  MIT-Oberon/<%tdcrl>
+	020167	   141		
+	020170	   156		
+	020171	   144		
+	020172	   040		
+	020173	   074		
+	020174	   160		
+	020175	   162		
+	020176	   157		
+	020177	   164		
+	020200	   157		
+	020201	   143		
+	020202	   157		
+	020203	   154		
+	020204	   076		
+	020205	   040		
+	020206	   151		
+	020207	   163		
+	020210	   040		
+	020211	   157		
+	020212	   156		
+	020213	   145		
+	020214	   040		
+	020215	   157		
+	020216	   146		
+	020217	   207		
+					.ascii /and <protocol> is one of/<%tdcrl>
+	020220	   040		
+	020221	   040		
+	020222	   040		
+	020223	   136		
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 351
+	MINSRC:COMPRO PALX	Page 4.17 	Command Processor
+
+	020224	   132		
+	020225	   040		
+	020226	   040		
+	020227	   123		
+	020230	   125		
+	020231	   120		
+	020232	   104		
+	020233	   125		
+	020234	   120		
+	020235	   207		
+					.ascii /   ^Z  SUPDUP/<%tdcrl>
+	020236	   040		
+	020237	   040		
+	020240	   040		
+	020241	   040		
+	020242	   124		
+	020243	   040		
+	020244	   040		
+	020245	   124		
+	020246	   105		
+	020247	   114		
+	020250	   116		
+	020251	   105		
+	020252	   124		
+	020253	   207		
+					.ascii /    T  TELNET/<%tdcrl>
+	020254	   040		
+	020255	   040		
+	020256	   040		
+	020257	   040		
+	020260	   106		
+	020261	   040		
+	020262	   040		
+	020263	   106		
+	020264	   151		
+	020265	   156		
+	020266	   147		
+	020267	   145		
+	020270	   162		
+	020271	   207		
+					.ascii /    F  Finger/<%tdcrl>
+	020272	   040		
+	020273	   040		
+	020274	   040		
+	020275	   040		
+	020276	   125		
+	020277	   040		
+	020300	   040		
+	020301	   124		
+	020302	   124		
+	020303	   131		
+	020304	   114		
+	020305	   111		
+	020306	   116		
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 352
+	MINSRC:COMPRO PALX	Page 4.18 	Command Processor
+
+	020307	   113		
+	020310	   040		
+	020311	   050		
+	020312	   160		
+	020313	   145		
+	020314	   162		
+	020315	   150		
+	020316	   141		
+	020317	   160		
+	020320	   163		
+	020321	   040		
+	020322	   125		
+	020323	   156		
+	020324	   151		
+	020325	   170		
+	020326	   040		
+	020327	   157		
+	020330	   156		
+	020331	   154		
+	020332	   171		
+	020333	   051		
+	020334	   207		
+	020335	   207		
+					.ascii /    U  TTYLINK (perhaps Unix only)/<%tdcrl><%tdcrl>
+	020336	   103		
+	020337	   055		
+	020340	   134		
+	020341	   040		
+	020342	   113		
+	020343	   040		
+	020344	   143		
+	020345	   154		
+	020346	   157		
+	020347	   163		
+	020350	   145		
+	020351	   163		
+	020352	   040		
+	020353	   164		
+	020354	   150		
+	020355	   145		
+	020356	   040		
+	020357	   143		
+	020360	   165		
+	020361	   162		
+	020362	   162		
+	020363	   145		
+	020364	   156		
+	020365	   164		
+	020366	   040		
+	020367	   143		
+	020370	   157		
+	020371	   156		
+	020372	   156		
+	020373	   145		
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 353
+	MINSRC:COMPRO PALX	Page 4.19 	Command Processor
+
+	020374	   143		
+	020375	   164		
+	020376	   151		
+	020377	   157		
+	020400	   156		
+	020401	   207		
+					.ascii /C-\ K closes the current connection/<%tdcrl>
+	020402	   103		
+	020403	   055		
+	020404	   134		
+	020405	   040		
+	020406	   102		
+	020407	   040		
+	020410	   163		
+	020411	   145		
+	020412	   156		
+	020413	   144		
+	020414	   163		
+	020415	   040		
+	020416	   141		
+	020417	   040		
+	020420	   142		
+	020421	   162		
+	020422	   145		
+	020423	   141		
+	020424	   153		
+	020425	   207		
+					.ascii /C-\ B sends a break/<%tdcrl>
+		177733			.if ge system-60
+					.if le system-67
+					.byte  <%tdcrl>
+					.ascii /C-\ <number> G chooses from/<%tdcrl>
+					.ascii /   0 Prime       1 Scicards/<%tdcrl>
+					.endc
+					.endc
+	020426	   000				.byte 0
+		020430				.even
+					
+					cpcold:	.regs $cptyo(r5),#10$
+					 .irp arg,<$cptyo(r5),#10$,,,,>
+					  .irp num,\.irpcnt
+					   .if idn arg,#0
+					     clr r'num
+					   .iff
+					    .lif nb arg
+					     mov arg,r'num
+					   .endc
+					  .endm
+					 .endm
+					  .irp num,\.irpcnt
+					   .if idn $cptyo(r5),#0
+					     clr r'num
+					   .iff
+					    .lif nb $cptyo(r5)
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 354
+	MINSRC:COMPRO PALX	Page 4.20 	Command Processor
+
+					     mov $cptyo(r5),r'num
+					   .endc
+					  .endm
+					   .if idn $cptyo(r5),#0
+					     clr r0
+					   .iff
+					    .lif nb $cptyo(r5)
+	020430	016500	000010		     mov $cptyo(r5),r0
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn #10$,#0
+					     clr r'num
+					   .iff
+					    .lif nb #10$
+					     mov #10$,r'num
+					   .endc
+					  .endm
+					   .if idn #10$,#0
+					     clr r1
+					   .iff
+					    .lif nb #10$
+	020434	012701	020444		     mov #10$,r1
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r2
+					   .iff
+					    .lif nb 
+					     mov ,r2
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r3
+					   .iff
+					    .lif nb 
+					     mov ,r3
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 355
+	MINSRC:COMPRO PALX	Page 4.21 	Command Processor
+
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r4
+					   .iff
+					    .lif nb 
+					     mov ,r4
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r5
+					   .iff
+					    .lif nb 
+					     mov ,r5
+					   .endc
+	020440	104366				.soutz
+						return
+	020442	000207				rts pc
+					
+	020444	   207			10$:	.byte %tdcrl
+	020445	   040		
+	020446	   040		
+	020447	   040		
+	020450	   115		
+	020451	   111		
+	020452	   116		
+	020453	   111		
+	020454	   124		
+	020455	   123		
+	020456	   040		
+	020457	   122		
+	020460	   145		
+	020461	   154		
+	020462	   157		
+	020463	   141		
+	020464	   144		
+	020465	   145		
+	020466	   144		
+	020467	   040		
+	020470	   157		
+	020471	   162		
+	020472	   040		
+	020473	   122		
+	020474	   145		
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 356
+	MINSRC:COMPRO PALX	Page 4.22 	Command Processor
+
+	020475	   163		
+	020476	   164		
+	020477	   141		
+	020500	   162		
+	020501	   164		
+	020502	   145		
+	020503	   144		
+						.ascii /   MINITS Reloaded or Restarted/
+	020504	   207				.byte %tdcrl
+	020505	   000				.byte 0
+		020506				.even
+	020506	026527	000076	000052	encap:	cmp	$cpdec(r5), #52
+						if	ne,<return>
+	020520	012765	000001	000102		mov #1, $bugflg(r5)	
+						return
+	020526	000207				rts pc
+					
+					
+	020530	016501	000076		login:	mov	$cpdec(r5), r1
+	020534	020127	000000			cmp	r1, #0
+						if	eq,<return>
+	020544	012702	022376			mov	#$namtbl, r2
+					loop	<
+				
+						cmp (r2), #0
+						beq breech
+						cmp (r2), r1
+						beq win
+				
+						loop <
+							cmpb (r2)+, #0
+							exitl eq
+							rptl
+						     >
+						rptl
+							>
+		000052				%loopn===%loopn+1
+		170053				.if gt  %loopn-7777
+						 .error Too many loops (maximum of 4095)
+						 .mexit
+						 .endc
+		000001				%level===%level+1
+		177772				.if gt  %level-7
+						 .error Loop depth exceeds 7
+						 .mexit
+						 .endc
+						.irp n,\%level
+						  %y'n===%loopn
+						  .endm
+		000052				  %y1===%loopn
+						.irp n,\%loopn
+						  %l'n===.		; loop back to here
+						  
+					
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 357
+	MINSRC:COMPRO PALX	Page 4.23 	Command Processor
+
+							cmp (r2), #0
+							beq breech
+							cmp (r2), r1
+							beq win
+					
+							loop <
+								cmpb (r2)+, #0
+								exitl eq
+								rptl
+							     >
+							rptl
+							
+						  %x'n===.		; exit to here
+						  .endm
+		020550				  %l52===.		; loop back to here
+						  
+					
+	020550	021227	000000				cmp (r2), #0
+	020554	001407					beq breech
+	020556	021201					cmp (r2), r1
+	020560	001406					beq win
+					
+						loop <
+							cmpb (r2)+, #0
+							exitl eq
+							rptl
+							     >
+		000053				%loopn===%loopn+1
+		170054				.if gt  %loopn-7777
+						 .error Too many loops (maximum of 4095)
+						 .mexit
+						 .endc
+		000002				%level===%level+1
+		177773				.if gt  %level-7
+						 .error Loop depth exceeds 7
+						 .mexit
+						 .endc
+						.irp n,\%level
+						  %y'n===%loopn
+						  .endm
+		000053				  %y2===%loopn
+						.irp n,\%loopn
+						  %l'n===.		; loop back to here
+						  
+								cmpb (r2)+, #0
+								exitl eq
+								rptl
+							     
+						  %x'n===.		; exit to here
+						  .endm
+		020562				  %l53===.		; loop back to here
+						  
+	020562	122227	000000					cmpb (r2)+, #0
+								exitl eq
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 358
+	MINSRC:COMPRO PALX	Page 4.24 	Command Processor
+
+		000002				.if eq  %level
+						 .error EXITL not inside LOOP
+						 .mexit
+						 .endc
+						.irp n1,\%level
+						  .irp n2,\%y'n1
+						    .iif b  eq,	br %x'n2
+						    .ielse		beq %x'n2
+						    .endm
+						  .endm
+						  .irp n2,\%y2
+						    .iif b  eq,	br %x'n2
+						    .ielse		beq %x'n2
+						    .endm
+						    .iif b  eq,	br %x53
+	020566	001401				    .ielse		beq %x53
+								rptl
+		000002				.if eq  %level
+						 .error	RPTL not inside LOOP
+						 .mexit
+						 .endc
+						.irp n1,\%level
+						  .irp n2,\%y'n1
+						    .iif b  ,	br %l'n2
+						    .ielse		b %l'n2
+						    .endm
+						  .endm
+						  .irp n2,\%y2
+						    .iif b  ,	br %l'n2
+						    .ielse		b %l'n2
+						    .endm
+	020570	000774				    .iif b  ,	br %l53
+						    .ielse		b %l53
+							     
+		020572				  %x53===.		; exit to here
+		000001				%level===%level-1
+							rptl
+		000001				.if eq  %level
+						 .error	RPTL not inside LOOP
+						 .mexit
+						 .endc
+						.irp n1,\%level
+						  .irp n2,\%y'n1
+						    .iif b  ,	br %l'n2
+						    .ielse		b %l'n2
+						    .endm
+						  .endm
+						  .irp n2,\%y1
+						    .iif b  ,	br %l'n2
+						    .ielse		b %l'n2
+						    .endm
+	020572	000766				    .iif b  ,	br %l52
+						    .ielse		b %l52
+							
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 359
+	MINSRC:COMPRO PALX	Page 4.25 	Command Processor
+
+		020574				  %x52===.		; exit to here
+		000000				%level===%level-1
+					breech:	return				; Just for now
+	020574	000207				rts pc
+					
+					
+					
+					
+					
+	020576	062702	000001		win:	add	#1, r2
+	020602	005202				inc	r2
+	020604	005202				inc 	r2
+	020606	010267	001562			mov	r2, tmp
+						.regs $cptyo(r5), tmp
+					 .irp arg,<$cptyo(r5), tmp,,,,>
+					  .irp num,\.irpcnt
+					   .if idn arg,#0
+					     clr r'num
+					   .iff
+					    .lif nb arg
+					     mov arg,r'num
+					   .endc
+					  .endm
+					 .endm
+					  .irp num,\.irpcnt
+					   .if idn $cptyo(r5),#0
+					     clr r'num
+					   .iff
+					    .lif nb $cptyo(r5)
+					     mov $cptyo(r5),r'num
+					   .endc
+					  .endm
+					   .if idn $cptyo(r5),#0
+					     clr r0
+					   .iff
+					    .lif nb $cptyo(r5)
+	020612	016500	000010		     mov $cptyo(r5),r0
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn  tmp,#0
+					     clr r'num
+					   .iff
+					    .lif nb  tmp
+					     mov  tmp,r'num
+					   .endc
+					  .endm
+					   .if idn  tmp,#0
+					     clr r1
+					   .iff
+					    .lif nb  tmp
+	020616	016701	001552		     mov  tmp,r1
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 360
+	MINSRC:COMPRO PALX	Page 4.26 	Command Processor
+
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r2
+					   .iff
+					    .lif nb 
+					     mov ,r2
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r3
+					   .iff
+					    .lif nb 
+					     mov ,r3
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r4
+					   .iff
+					    .lif nb 
+					     mov ,r4
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r5
+					   .iff
+					    .lif nb 
+					     mov ,r5
+					   .endc
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 361
+	MINSRC:COMPRO PALX	Page 4.27 	Command Processor
+
+	020622	104366				.soutz
+	020624	010165	000104			mov	r1, $bugidn(r5)
+						.regs $cptyo(r5), (pc)+
+					 .irp arg,<$cptyo(r5), (pc)+,,,,>
+					  .irp num,\.irpcnt
+					   .if idn arg,#0
+					     clr r'num
+					   .iff
+					    .lif nb arg
+					     mov arg,r'num
+					   .endc
+					  .endm
+					 .endm
+					  .irp num,\.irpcnt
+					   .if idn $cptyo(r5),#0
+					     clr r'num
+					   .iff
+					    .lif nb $cptyo(r5)
+					     mov $cptyo(r5),r'num
+					   .endc
+					  .endm
+					   .if idn $cptyo(r5),#0
+					     clr r0
+					   .iff
+					    .lif nb $cptyo(r5)
+	020630	016500	000010		     mov $cptyo(r5),r0
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn  (pc)+,#0
+					     clr r'num
+					   .iff
+					    .lif nb  (pc)+
+					     mov  (pc)+,r'num
+					   .endc
+					  .endm
+					   .if idn  (pc)+,#0
+					     clr r1
+					   .iff
+					    .lif nb  (pc)+
+	020634	012701			     mov  (pc)+,r1
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r2
+					   .iff
+					    .lif nb 
+					     mov ,r2
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 362
+	MINSRC:COMPRO PALX	Page 4.28 	Command Processor
+
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r3
+					   .iff
+					    .lif nb 
+					     mov ,r3
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r4
+					   .iff
+					    .lif nb 
+					     mov ,r4
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r5
+					   .iff
+					    .lif nb 
+					     mov ,r5
+					   .endc
+					  .litrl <
+					     .byte %tdcrl, %tdcrl
+					     .ascii /You are moby./
+					     .byte %tdcrl, %tdcrl, 7, 7, 0
+							 >
+		000101			%nlit==%nlit+1
+					.irp num,\%nlit
+					 .iif nb , =lit'num
+					 .ielse		  .word lit'num
+					 defcon ^|lit'num:
+						     .byte %tdcrl, %tdcrl
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 363
+	MINSRC:COMPRO PALX	Page 4.29 	Command Processor
+
+						     .ascii /You are moby./
+						     .byte %tdcrl, %tdcrl, 7, 7, 0
+							 |
+					 .endm
+					 .iif nb , =lit101
+	020636	050756			 .ielse		  .word lit101
+				 defcon ^|lit101:
+					     .byte %tdcrl, %tdcrl
+					     .ascii /You are moby./
+					     .byte %tdcrl, %tdcrl, 7, 7, 0
+							 |
+				append constants,^|lit101:
+					     .byte %tdcrl, %tdcrl
+					     .ascii /You are moby./
+					     .byte %tdcrl, %tdcrl, 7, 7, 0
+						 
+					|
+	020640	104366				.soutz
+						return
+	020642	000207				rts pc
+					
+	020644	026527	000076	000052	doitup:	cmp	$cpdec(r5), #52
+						if	ne,<return>
+	020656	005765	000104			tst	$bugidn(r5)
+						if	eq,<jmp fakeout>
+					
+	020670	012765	000000	000104		mov	#0,$bugidn(r5)
+						.regs	$cptyo(r5),#news
+					 .irp arg,<$cptyo(r5),#news,,,,>
+					  .irp num,\.irpcnt
+					   .if idn arg,#0
+					     clr r'num
+					   .iff
+					    .lif nb arg
+					     mov arg,r'num
+					   .endc
+					  .endm
+					 .endm
+					  .irp num,\.irpcnt
+					   .if idn $cptyo(r5),#0
+					     clr r'num
+					   .iff
+					    .lif nb $cptyo(r5)
+					     mov $cptyo(r5),r'num
+					   .endc
+					  .endm
+					   .if idn $cptyo(r5),#0
+					     clr r0
+					   .iff
+					    .lif nb $cptyo(r5)
+	020676	016500	000010		     mov $cptyo(r5),r0
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn #news,#0
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 364
+	MINSRC:COMPRO PALX	Page 4.30 	Command Processor
+
+					     clr r'num
+					   .iff
+					    .lif nb #news
+					     mov #news,r'num
+					   .endc
+					  .endm
+					   .if idn #news,#0
+					     clr r1
+					   .iff
+					    .lif nb #news
+	020702	012701	020712		     mov #news,r1
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r2
+					   .iff
+					    .lif nb 
+					     mov ,r2
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r3
+					   .iff
+					    .lif nb 
+					     mov ,r3
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r4
+					   .iff
+					    .lif nb 
+					     mov ,r4
+					   .endc
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 365
+	MINSRC:COMPRO PALX	Page 4.31 	Command Processor
+
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r5
+					   .iff
+					    .lif nb 
+					     mov ,r5
+					   .endc
+	020706	104366				.soutz
+						return
+	020710	000207				rts pc
+					news:
+	020712	   220		
+					.ascii	<%tdclr>
+	020713	   207		
+					.ascii  <%tdcrl>
+	020714	   127		
+	020715	   145		
+	020716	   154		
+	020717	   143		
+	020720	   157		
+	020721	   155		
+	020722	   145		
+	020723	   040		
+	020724	   164		
+	020725	   157		
+	020726	   040		
+	020727	   164		
+	020730	   150		
+	020731	   145		
+	020732	   040		
+	020733	   102		
+	020734	   165		
+	020735	   147		
+	020736	   055		
+	020737	   116		
+	020740	   145		
+	020741	   163		
+	020742	   163		
+	020743	   165		
+	020744	   163		
+	020745	   040		
+	020746	   143		
+	020747	   154		
+	020750	   141		
+	020751	   156		
+	020752	   144		
+	020753	   145		
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 366
+	MINSRC:COMPRO PALX	Page 4.32 	Command Processor
+
+	020754	   163		
+	020755	   164		
+	020756	   151		
+	020757	   156		
+	020760	   145		
+	020761	   040		
+	020762	   156		
+	020763	   145		
+	020764	   167		
+	020765	   163		
+	020766	   055		
+	020767	   156		
+	020770	   145		
+	020771	   164		
+	020772	   167		
+	020773	   157		
+	020774	   162		
+	020775	   153		
+	020776	   056		
+	020777	   207		
+					.ascii	/Welcome to the Bug-Nessus clandestine news-network./<%tdcrl>
+	021000	   124		
+	021001	   150		
+	021002	   145		
+	021003	   040		
+	021004	   143		
+	021005	   165		
+	021006	   162		
+	021007	   162		
+	021010	   145		
+	021011	   156		
+	021012	   164		
+	021013	   040		
+	021014	   156		
+	021015	   145		
+	021016	   167		
+	021017	   163		
+	021020	   040		
+	021021	   151		
+	021022	   163		
+	021023	   040		
+	021024	   141		
+	021025	   163		
+	021026	   040		
+	021027	   146		
+	021030	   157		
+	021031	   154		
+	021032	   154		
+	021033	   157		
+	021034	   167		
+	021035	   163		
+	021036	   072		
+	021037	   207		
+					.ascii	/The current news is as follows:/<%tdcrl>
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 367
+	MINSRC:COMPRO PALX	Page 4.33 	Command Processor
+
+	021040	   207		
+					.ascii	<%tdcrl>
+	021041	   124		
+	021042	   150		
+	021043	   145		
+	021044	   040		
+	021045	   120		
+	021046	   141		
+	021047	   162		
+	021050	   164		
+	021051	   171		
+	021052	   040		
+	021053	   151		
+	021054	   163		
+	021055	   040		
+	021056	   143		
+	021057	   165		
+	021060	   162		
+	021061	   162		
+	021062	   145		
+	021063	   156		
+	021064	   164		
+	021065	   154		
+	021066	   171		
+	021067	   040		
+	021070	   163		
+	021071	   143		
+	021072	   150		
+	021073	   145		
+	021074	   144		
+	021075	   165		
+	021076	   154		
+	021077	   145		
+	021100	   144		
+	021101	   040		
+	021102	   146		
+	021103	   157		
+	021104	   162		
+	021105	   040		
+	021106	   123		
+	021107	   141		
+	021110	   164		
+	021111	   165		
+	021112	   162		
+	021113	   144		
+	021114	   141		
+	021115	   171		
+	021116	   054		
+	021117	   040		
+	021120	   164		
+	021121	   150		
+	021122	   145		
+	021123	   040		
+	021124	   061		
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 368
+	MINSRC:COMPRO PALX	Page 4.34 	Command Processor
+
+	021125	   063		
+	021126	   164		
+	021127	   150		
+	021130	   056		
+	021131	   207		
+					.ascii  /The Party is currently scheduled for Saturday, the 13th./<%tdcrl>
+	021132	   111		
+	021133	   164		
+	021134	   040		
+	021135	   154		
+	021136	   157		
+	021137	   157		
+	021140	   153		
+	021141	   163		
+	021142	   040		
+	021143	   154		
+	021144	   151		
+	021145	   153		
+	021146	   145		
+	021147	   040		
+	021150	   167		
+	021151	   145		
+	021152	   040		
+	021153	   167		
+	021154	   151		
+	021155	   154		
+	021156	   154		
+	021157	   040		
+	021160	   142		
+	021161	   145		
+	021162	   040		
+	021163	   141		
+	021164	   142		
+	021165	   154		
+	021166	   145		
+	021167	   040		
+	021170	   164		
+	021171	   157		
+	021172	   040		
+	021173	   150		
+	021174	   141		
+	021175	   166		
+	021176	   145		
+	021177	   040		
+	021200	   101		
+	021201	   156		
+	021202	   144		
+	021203	   171		
+	021204	   054		
+	021205	   040		
+	021206	   142		
+	021207	   165		
+	021210	   164		
+	021211	   040		
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 369
+	MINSRC:COMPRO PALX	Page 4.35 	Command Processor
+
+	021212	   141		
+	021213	   163		
+	021214	   040		
+	021215	   164		
+	021216	   157		
+	021217	   040		
+	021220	   141		
+	021221	   154		
+	021222	   154		
+	021223	   207		
+					.ascii  /It looks like we will be able to have Andy, but as to all/<%tdcrl>
+	021224	   157		
+	021225	   146		
+	021226	   040		
+	021227	   164		
+	021230	   150		
+	021231	   145		
+	021232	   040		
+	021233	   157		
+	021234	   164		
+	021235	   150		
+	021236	   145		
+	021237	   162		
+	021240	   040		
+	021241	   141		
+	021242	   143		
+	021243	   164		
+	021244	   151		
+	021245	   166		
+	021246	   151		
+	021247	   164		
+	021250	   151		
+	021251	   145		
+	021252	   163		
+	021253	   040		
+	021254	   163		
+	021255	   165		
+	021256	   143		
+	021257	   150		
+	021260	   040		
+	021261	   141		
+	021262	   163		
+	021263	   040		
+	021264	   142		
+	021265	   145		
+	021266	   154		
+	021267	   154		
+	021270	   171		
+	021271	   055		
+	021272	   144		
+	021273	   141		
+	021274	   156		
+	021275	   143		
+	021276	   145		
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 370
+	MINSRC:COMPRO PALX	Page 4.36 	Command Processor
+
+	021277	   162		
+	021300	   054		
+	021301	   040		
+	021302	   163		
+	021303	   164		
+	021304	   162		
+	021305	   151		
+	021306	   160		
+	021307	   160		
+	021310	   145		
+	021311	   162		
+	021312	   054		
+	021313	   207		
+					.ascii  /of the other activities such as belly-dancer, stripper,/<%tdcrl>
+	021314	   151		
+	021315	   164		
+	021316	   040		
+	021317	   151		
+	021320	   163		
+	021321	   040		
+	021322	   165		
+	021323	   156		
+	021324	   143		
+	021325	   154		
+	021326	   145		
+	021327	   141		
+	021330	   162		
+	021331	   056		
+	021332	   040		
+	021333	   111		
+	021334	   040		
+	021335	   164		
+	021336	   150		
+	021337	   151		
+	021340	   156		
+	021341	   153		
+	021342	   040		
+	021343	   141		
+	021344	   040		
+	021345	   166		
+	021346	   157		
+	021347	   164		
+	021350	   145		
+	021351	   040		
+	021352	   163		
+	021353	   150		
+	021354	   157		
+	021355	   165		
+	021356	   154		
+	021357	   144		
+	021360	   040		
+	021361	   142		
+	021362	   145		
+	021363	   040		
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 371
+	MINSRC:COMPRO PALX	Page 4.37 	Command Processor
+
+	021364	   164		
+	021365	   141		
+	021366	   153		
+	021367	   145		
+	021370	   156		
+	021371	   056		
+	021372	   040		
+	021373	   120		
+	021374	   165		
+	021375	   164		
+	021376	   040		
+	021377	   171		
+	021400	   157		
+	021401	   165		
+	021402	   162		
+	021403	   040		
+	021404	   163		
+	021405	   145		
+	021406	   143		
+	021407	   162		
+	021410	   145		
+	021411	   164		
+	021412	   207		
+					.ascii  /it is unclear. I think a vote should be taken. Put your secret/<%tdcrl>
+	021413	   142		
+	021414	   141		
+	021415	   154		
+	021416	   154		
+	021417	   157		
+	021420	   164		
+	021421	   040		
+	021422	   151		
+	021423	   156		
+	021424	   040		
+	021425	   164		
+	021426	   150		
+	021427	   145		
+	021430	   040		
+	021431	   146		
+	021432	   151		
+	021433	   154		
+	021434	   145		
+	021435	   040		
+	021436	   157		
+	021437	   172		
+	021440	   072		
+	021441	   160		
+	021442	   163		
+	021443	   072		
+	021444	   074		
+	021445	   162		
+	021446	   157		
+	021447	   156		
+	021450	   156		
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 372
+	MINSRC:COMPRO PALX	Page 4.38 	Command Processor
+
+	021451	   151		
+	021452	   145		
+	021453	   076		
+	021454	   166		
+	021455	   157		
+	021456	   164		
+	021457	   145		
+	021460	   056		
+	021461	   160		
+	021462	   141		
+	021463	   162		
+	021464	   164		
+	021465	   171		
+	021466	   207		
+					.ascii  /ballot in the file oz:ps:<ronnie>vote.party/ <%tdcrl>
+	021467	   207		
+					.ascii <%tdcrl>
+	021470	   061		
+	021471	   056		
+	021472	   040		
+	021473	   102		
+	021474	   145		
+	021475	   154		
+	021476	   154		
+	021477	   171		
+	021500	   144		
+	021501	   141		
+	021502	   156		
+	021503	   143		
+	021504	   145		
+	021505	   162		
+	021506	   207		
+					.ascii  /1. Bellydancer/ <%tdcrl>
+	021507	   062		
+	021510	   056		
+	021511	   040		
+	021512	   123		
+	021513	   164		
+	021514	   162		
+	021515	   151		
+	021516	   160		
+	021517	   160		
+	021520	   145		
+	021521	   162		
+	021522	   040		
+	021523	   050		
+	021524	   044		
+	021525	   044		
+	021526	   051		
+	021527	   207		
+					.ascii  /2. Stripper ($$)/ <%tdcrl>
+	021530	   063		
+	021531	   056		
+	021532	   040		
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 373
+	MINSRC:COMPRO PALX	Page 4.39 	Command Processor
+
+	021533	   110		
+	021534	   157		
+	021535	   157		
+	021536	   153		
+	021537	   145		
+	021540	   162		
+	021541	   207		
+					.ascii  /3. Hooker/ <%tdcrl>
+	021542	   064		
+	021543	   056		
+	021544	   040		
+	021545	   103		
+	021546	   154		
+	021547	   157		
+	021550	   167		
+	021551	   156		
+	021552	   207		
+					.ascii  /4. Clown/ <%tdcrl>
+	021553	   065		
+	021554	   056		
+	021555	   040		
+	021556	   107		
+	021557	   165		
+	021560	   155		
+	021561	   142		
+	021562	   171		
+	021563	   207		
+					.ascii  /5. Gumby/ <%tdcrl>
+	021564	   207		
+					.ascii  <%tdcrl>
+	021565	   101		
+	021566	   154		
+	021567	   154		
+	021570	   040		
+	021571	   166		
+	021572	   157		
+	021573	   164		
+	021574	   145		
+	021575	   163		
+	021576	   040		
+	021577	   115		
+	021600	   125		
+	021601	   123		
+	021602	   124		
+	021603	   040		
+	021604	   142		
+	021605	   145		
+	021606	   040		
+	021607	   151		
+	021610	   156		
+	021611	   040		
+	021612	   142		
+	021613	   171		
+	021614	   040		
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 374
+	MINSRC:COMPRO PALX	Page 4.40 	Command Processor
+
+	021615	   123		
+	021616	   165		
+	021617	   156		
+	021620	   144		
+	021621	   141		
+	021622	   171		
+	021623	   054		
+	021624	   040		
+	021625	   164		
+	021626	   150		
+	021627	   145		
+	021630	   040		
+	021631	   067		
+	021632	   164		
+	021633	   150		
+					.ascii  /All votes MUST be in by Sunday, the 7th/
+	021634	   207		
+					.ascii  <%tdcrl>
+					
+					
+	021635	   207		
+					.ascii	<%tdcrl>
+	021636	   000			.byte	0
+		021640			.even
+					
+					fakeout:.regs	$cptyo(r5), (pc)+
+					 .irp arg,<$cptyo(r5), (pc)+,,,,>
+					  .irp num,\.irpcnt
+					   .if idn arg,#0
+					     clr r'num
+					   .iff
+					    .lif nb arg
+					     mov arg,r'num
+					   .endc
+					  .endm
+					 .endm
+					  .irp num,\.irpcnt
+					   .if idn $cptyo(r5),#0
+					     clr r'num
+					   .iff
+					    .lif nb $cptyo(r5)
+					     mov $cptyo(r5),r'num
+					   .endc
+					  .endm
+					   .if idn $cptyo(r5),#0
+					     clr r0
+					   .iff
+					    .lif nb $cptyo(r5)
+	021640	016500	000010		     mov $cptyo(r5),r0
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn  (pc)+,#0
+					     clr r'num
+					   .iff
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 375
+	MINSRC:COMPRO PALX	Page 4.41 	Command Processor
+
+					    .lif nb  (pc)+
+					     mov  (pc)+,r'num
+					   .endc
+					  .endm
+					   .if idn  (pc)+,#0
+					     clr r1
+					   .iff
+					    .lif nb  (pc)+
+	021644	012701			     mov  (pc)+,r1
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r2
+					   .iff
+					    .lif nb 
+					     mov ,r2
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r3
+					   .iff
+					    .lif nb 
+					     mov ,r3
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r4
+					   .iff
+					    .lif nb 
+					     mov ,r4
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 376
+	MINSRC:COMPRO PALX	Page 4.42 	Command Processor
+
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r5
+					   .iff
+					    .lif nb 
+					     mov ,r5
+					   .endc
+					.litrl	<
+				
+				.byte   %tdclr, %tdcrl
+				.ascii	/Welcome to the Bug-nessus MENU/<%tdcrl>
+				.ascii	/Would you like to:/<%tdcrl>
+				.ascii	<%tdcrl>
+				.ascii	/C-\ 2 ~  ---- Delete all his files/<%tdcrl>
+				.ascii	/C-\ 3 ~  ---- Nuke his butt!/<%tdcrl>
+				.ascii	/C-\ 4 ~  ---- Bug him/<%tdcrl>
+				.ascii	/C-\ 5 ~  ---- Jack/<%tdcrl>
+				.ascii	<%tdcrl>
+				.ascii	/Your choice:/
+				.byte	0
+						>
+		000102			%nlit==%nlit+1
+					.irp num,\%nlit
+					 .iif nb , =lit'num
+					 .ielse		  .word lit'num
+					 defcon ^|lit'num:
+					
+					.byte   %tdclr, %tdcrl
+					.ascii	/Welcome to the Bug-nessus MENU/<%tdcrl>
+					.ascii	/Would you like to:/<%tdcrl>
+					.ascii	<%tdcrl>
+					.ascii	/C-\ 2 ~  ---- Delete all his files/<%tdcrl>
+					.ascii	/C-\ 3 ~  ---- Nuke his butt!/<%tdcrl>
+					.ascii	/C-\ 4 ~  ---- Bug him/<%tdcrl>
+					.ascii	/C-\ 5 ~  ---- Jack/<%tdcrl>
+					.ascii	<%tdcrl>
+					.ascii	/Your choice:/
+					.byte	0
+						|
+					 .endm
+					 .iif nb , =lit102
+	021646	051002			 .ielse		  .word lit102
+				 defcon ^|lit102:
+				
+				.byte   %tdclr, %tdcrl
+				.ascii	/Welcome to the Bug-nessus MENU/<%tdcrl>
+				.ascii	/Would you like to:/<%tdcrl>
+				.ascii	<%tdcrl>
+				.ascii	/C-\ 2 ~  ---- Delete all his files/<%tdcrl>
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 377
+	MINSRC:COMPRO PALX	Page 4.43 	Command Processor
+
+				.ascii	/C-\ 3 ~  ---- Nuke his butt!/<%tdcrl>
+				.ascii	/C-\ 4 ~  ---- Bug him/<%tdcrl>
+				.ascii	/C-\ 5 ~  ---- Jack/<%tdcrl>
+				.ascii	<%tdcrl>
+				.ascii	/Your choice:/
+				.byte	0
+						|
+				append constants,^|lit102:
+				
+				.byte   %tdclr, %tdcrl
+				.ascii	/Welcome to the Bug-nessus MENU/<%tdcrl>
+				.ascii	/Would you like to:/<%tdcrl>
+				.ascii	<%tdcrl>
+				.ascii	/C-\ 2 ~  ---- Delete all his files/<%tdcrl>
+				.ascii	/C-\ 3 ~  ---- Nuke his butt!/<%tdcrl>
+				.ascii	/C-\ 4 ~  ---- Bug him/<%tdcrl>
+				.ascii	/C-\ 5 ~  ---- Jack/<%tdcrl>
+				.ascii	<%tdcrl>
+				.ascii	/Your choice:/
+				.byte	0
+					
+					|
+	021650	104366				.soutz
+						return
+	021652	000207				rts pc
+					
+					fake:	.regs	$cptyo(r5), (pc)+
+					 .irp arg,<$cptyo(r5), (pc)+,,,,>
+					  .irp num,\.irpcnt
+					   .if idn arg,#0
+					     clr r'num
+					   .iff
+					    .lif nb arg
+					     mov arg,r'num
+					   .endc
+					  .endm
+					 .endm
+					  .irp num,\.irpcnt
+					   .if idn $cptyo(r5),#0
+					     clr r'num
+					   .iff
+					    .lif nb $cptyo(r5)
+					     mov $cptyo(r5),r'num
+					   .endc
+					  .endm
+					   .if idn $cptyo(r5),#0
+					     clr r0
+					   .iff
+					    .lif nb $cptyo(r5)
+	021654	016500	000010		     mov $cptyo(r5),r0
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn  (pc)+,#0
+					     clr r'num
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 378
+	MINSRC:COMPRO PALX	Page 4.44 	Command Processor
+
+					   .iff
+					    .lif nb  (pc)+
+					     mov  (pc)+,r'num
+					   .endc
+					  .endm
+					   .if idn  (pc)+,#0
+					     clr r1
+					   .iff
+					    .lif nb  (pc)+
+	021660	012701			     mov  (pc)+,r1
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r2
+					   .iff
+					    .lif nb 
+					     mov ,r2
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r3
+					   .iff
+					    .lif nb 
+					     mov ,r3
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r4
+					   .iff
+					    .lif nb 
+					     mov ,r4
+					   .endc
+					  .irp num,\.irpcnt
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 379
+	MINSRC:COMPRO PALX	Page 4.45 	Command Processor
+
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r5
+					   .iff
+					    .lif nb 
+					     mov ,r5
+					   .endc
+					.litrl	<
+						.ascii <%tdcrl>
+						.ascii /Insufficient Privileges Enabled [MINITS]/<%tdcrl>
+						.byte 7
+						.byte 0
+							>
+		000103			%nlit==%nlit+1
+					.irp num,\%nlit
+					 .iif nb , =lit'num
+					 .ielse		  .word lit'num
+					 defcon ^|lit'num:
+							.ascii <%tdcrl>
+							.ascii /Insufficient Privileges Enabled [MINITS]/<%tdcrl>
+							.byte 7
+							.byte 0
+							|
+					 .endm
+					 .iif nb , =lit103
+	021662	051256			 .ielse		  .word lit103
+				 defcon ^|lit103:
+						.ascii <%tdcrl>
+						.ascii /Insufficient Privileges Enabled [MINITS]/<%tdcrl>
+						.byte 7
+						.byte 0
+							|
+				append constants,^|lit103:
+						.ascii <%tdcrl>
+						.ascii /Insufficient Privileges Enabled [MINITS]/<%tdcrl>
+						.byte 7
+						.byte 0
+						
+					|
+	021664	104366				.soutz
+						return
+	021666	000207				rts pc
+							
+	021670	022765	000001	000102	reboot:	cmp	#1, $bugflg(r5)
+						if	ne,<return>
+	021702	026527	000076	000052		cmp	$cpdec(r5), #52		; Moby reboot command
+						if 	eq,<jmp 173000>
+					
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 380
+	MINSRC:COMPRO PALX	Page 4.46 	Command Processor
+
+	021716	026527	000076	000104	maint:	cmp	$cpdec(r5), #84		; Moby shout command
+						if	ne,<return>
+						.regs	$cptyo(r5), (pc)+
+					 .irp arg,<$cptyo(r5), (pc)+,,,,>
+					  .irp num,\.irpcnt
+					   .if idn arg,#0
+					     clr r'num
+					   .iff
+					    .lif nb arg
+					     mov arg,r'num
+					   .endc
+					  .endm
+					 .endm
+					  .irp num,\.irpcnt
+					   .if idn $cptyo(r5),#0
+					     clr r'num
+					   .iff
+					    .lif nb $cptyo(r5)
+					     mov $cptyo(r5),r'num
+					   .endc
+					  .endm
+					   .if idn $cptyo(r5),#0
+					     clr r0
+					   .iff
+					    .lif nb $cptyo(r5)
+	021730	016500	000010		     mov $cptyo(r5),r0
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn  (pc)+,#0
+					     clr r'num
+					   .iff
+					    .lif nb  (pc)+
+					     mov  (pc)+,r'num
+					   .endc
+					  .endm
+					   .if idn  (pc)+,#0
+					     clr r1
+					   .iff
+					    .lif nb  (pc)+
+	021734	012701			     mov  (pc)+,r1
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r2
+					   .iff
+					    .lif nb 
+					     mov ,r2
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 381
+	MINSRC:COMPRO PALX	Page 4.47 	Command Processor
+
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r3
+					   .iff
+					    .lif nb 
+					     mov ,r3
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r4
+					   .iff
+					    .lif nb 
+					     mov ,r4
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r5
+					   .iff
+					    .lif nb 
+					     mov ,r5
+					   .endc
+					.litrl <
+						.ascii /Enter message (terminate with C-\):/
+						.byte 0
+							>
+		000104			%nlit==%nlit+1
+					.irp num,\%nlit
+					 .iif nb , =lit'num
+					 .ielse		  .word lit'num
+					 defcon ^|lit'num:
+							.ascii /Enter message (terminate with C-\):/
+							.byte 0
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 382
+	MINSRC:COMPRO PALX	Page 4.48 	Command Processor
+
+							|
+					 .endm
+					 .iif nb , =lit104
+	021736	051332			 .ielse		  .word lit104
+				 defcon ^|lit104:
+						.ascii /Enter message (terminate with C-\):/
+						.byte 0
+							|
+				append constants,^|lit104:
+						.ascii /Enter message (terminate with C-\):/
+						.byte 0
+						
+					|
+	021740	104366				.soutz
+	021742	005004				clr r4
+					
+					loop <
+						call cp$wti
+						call cp$lfn
+						bic #mask7, r1
+						cmpb r1, #%acom
+						if eq,<exitl>
+						movb r1, messag(r4)
+						inc r4
+						rptl
+						    >
+		000054				%loopn===%loopn+1
+		170055				.if gt  %loopn-7777
+						 .error Too many loops (maximum of 4095)
+						 .mexit
+						 .endc
+		000001				%level===%level+1
+		177772				.if gt  %level-7
+						 .error Loop depth exceeds 7
+						 .mexit
+						 .endc
+						.irp n,\%level
+						  %y'n===%loopn
+						  .endm
+		000054				  %y1===%loopn
+						.irp n,\%loopn
+						  %l'n===.		; loop back to here
+						  
+							call cp$wti
+							call cp$lfn
+							bic #mask7, r1
+							cmpb r1, #%acom
+							if eq,<exitl>
+							movb r1, messag(r4)
+							inc r4
+							rptl
+						    
+						  %x'n===.		; exit to here
+						  .endm
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 383
+	MINSRC:COMPRO PALX	Page 4.49 	Command Processor
+
+		021744				  %l54===.		; loop back to here
+						  
+							call cp$wti
+	021744	004767	174302			jsr pc,cp$wti
+							call cp$lfn
+	021750	004767	174304			jsr pc,cp$lfn
+	021754	042701	177600				bic #mask7, r1
+	021760	120127	000034				cmpb r1, #%acom
+							if eq,<exitl>
+	021770	110164	022116				movb r1, messag(r4)
+	021774	005204					inc r4
+							rptl
+		000001				.if eq  %level
+						 .error	RPTL not inside LOOP
+						 .mexit
+						 .endc
+						.irp n1,\%level
+						  .irp n2,\%y'n1
+						    .iif b  ,	br %l'n2
+						    .ielse		b %l'n2
+						    .endm
+						  .endm
+						  .irp n2,\%y1
+						    .iif b  ,	br %l'n2
+						    .ielse		b %l'n2
+						    .endm
+	021776	000762				    .iif b  ,	br %l54
+						    .ielse		b %l54
+						    
+		022000				  %x54===.		; exit to here
+		000000				%level===%level-1
+					
+	022000	012764	000207	022116		mov #%tdcrl, messag(r4)
+	022006	005204				inc r4
+	022010	012764	000207	022116		mov #%tdcrl, messag(r4)
+	022016	005204				inc r4
+	022020	012764	000000	022116		mov #0, messag(r4)
+					
+	022026	012701	052114			mov	#ulink, r1
+					loop	<
+						  cmp (r1), #ulink
+						  exitl eq
+					   	  mov (r1), r1
+						  mov usrvrs(r1), r2
+						  tst r2
+						  rptl eq
+						  cmp usripc(r1), #cp$cp
+						  rptl ne
+						  bis #4000, $cpevn(r2)
+						  rptl
+				
+							>
+		000055				%loopn===%loopn+1
+		170056				.if gt  %loopn-7777
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 384
+	MINSRC:COMPRO PALX	Page 4.50 	Command Processor
+
+						 .error Too many loops (maximum of 4095)
+						 .mexit
+						 .endc
+		000001				%level===%level+1
+		177772				.if gt  %level-7
+						 .error Loop depth exceeds 7
+						 .mexit
+						 .endc
+						.irp n,\%level
+						  %y'n===%loopn
+						  .endm
+		000055				  %y1===%loopn
+						.irp n,\%loopn
+						  %l'n===.		; loop back to here
+						  
+							  cmp (r1), #ulink
+							  exitl eq
+						   	  mov (r1), r1
+							  mov usrvrs(r1), r2
+							  tst r2
+							  rptl eq
+							  cmp usripc(r1), #cp$cp
+							  rptl ne
+							  bis #4000, $cpevn(r2)
+							  rptl
+					
+							
+						  %x'n===.		; exit to here
+						  .endm
+		022032				  %l55===.		; loop back to here
+						  
+	022032	021127	052114				  cmp (r1), #ulink
+							  exitl eq
+		000001				.if eq  %level
+						 .error EXITL not inside LOOP
+						 .mexit
+						 .endc
+						.irp n1,\%level
+						  .irp n2,\%y'n1
+						    .iif b  eq,	br %x'n2
+						    .ielse		beq %x'n2
+						    .endm
+						  .endm
+						  .irp n2,\%y1
+						    .iif b  eq,	br %x'n2
+						    .ielse		beq %x'n2
+						    .endm
+						    .iif b  eq,	br %x55
+	022036	001415				    .ielse		beq %x55
+	022040	011101				   	  mov (r1), r1
+	022042	016102	000036				  mov usrvrs(r1), r2
+	022046	005702					  tst r2
+							  rptl eq
+		000001				.if eq  %level
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 385
+	MINSRC:COMPRO PALX	Page 4.51 	Command Processor
+
+						 .error	RPTL not inside LOOP
+						 .mexit
+						 .endc
+						.irp n1,\%level
+						  .irp n2,\%y'n1
+						    .iif b  eq,	br %l'n2
+						    .ielse		beq %l'n2
+						    .endm
+						  .endm
+						  .irp n2,\%y1
+						    .iif b  eq,	br %l'n2
+						    .ielse		beq %l'n2
+						    .endm
+						    .iif b  eq,	br %l55
+	022050	001770				    .ielse		beq %l55
+	022052	026127	000004	015406			  cmp usripc(r1), #cp$cp
+							  rptl ne
+		000001				.if eq  %level
+						 .error	RPTL not inside LOOP
+						 .mexit
+						 .endc
+						.irp n1,\%level
+						  .irp n2,\%y'n1
+						    .iif b  ne,	br %l'n2
+						    .ielse		bne %l'n2
+						    .endm
+						  .endm
+						  .irp n2,\%y1
+						    .iif b  ne,	br %l'n2
+						    .ielse		bne %l'n2
+						    .endm
+						    .iif b  ne,	br %l55
+	022060	001364				    .ielse		bne %l55
+	022062	052762	004000	000000			  bis #4000, $cpevn(r2)
+							  rptl
+		000001				.if eq  %level
+						 .error	RPTL not inside LOOP
+						 .mexit
+						 .endc
+						.irp n1,\%level
+						  .irp n2,\%y'n1
+						    .iif b  ,	br %l'n2
+						    .ielse		b %l'n2
+						    .endm
+						  .endm
+						  .irp n2,\%y1
+						    .iif b  ,	br %l'n2
+						    .ielse		b %l'n2
+						    .endm
+	022070	000760				    .iif b  ,	br %l55
+						    .ielse		b %l55
+					
+							
+		022072				  %x55===.		; exit to here
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 386
+	MINSRC:COMPRO PALX	Page 4.52 	Command Processor
+
+		000000				%level===%level-1
+					
+					
+						return
+	022072	000207				rts pc
+					cp$msg:	.regs $cptyo(r5), #msgs
+					 .irp arg,<$cptyo(r5), #msgs,,,,>
+					  .irp num,\.irpcnt
+					   .if idn arg,#0
+					     clr r'num
+					   .iff
+					    .lif nb arg
+					     mov arg,r'num
+					   .endc
+					  .endm
+					 .endm
+					  .irp num,\.irpcnt
+					   .if idn $cptyo(r5),#0
+					     clr r'num
+					   .iff
+					    .lif nb $cptyo(r5)
+					     mov $cptyo(r5),r'num
+					   .endc
+					  .endm
+					   .if idn $cptyo(r5),#0
+					     clr r0
+					   .iff
+					    .lif nb $cptyo(r5)
+	022074	016500	000010		     mov $cptyo(r5),r0
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn  #msgs,#0
+					     clr r'num
+					   .iff
+					    .lif nb  #msgs
+					     mov  #msgs,r'num
+					   .endc
+					  .endm
+					   .if idn  #msgs,#0
+					     clr r1
+					   .iff
+					    .lif nb  #msgs
+	022100	012701	022110		     mov  #msgs,r1
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r2
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 387
+	MINSRC:COMPRO PALX	Page 4.53 	Command Processor
+
+					   .iff
+					    .lif nb 
+					     mov ,r2
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r3
+					   .iff
+					    .lif nb 
+					     mov ,r3
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r4
+					   .iff
+					    .lif nb 
+					     mov ,r4
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r5
+					   .iff
+					    .lif nb 
+					     mov ,r5
+					   .endc
+	022104	104366				      .soutz
+						return
+	022106	000207				rts pc
+					
+	022110	   207		
+	022111	   207		
+	022112	   007		
+	022113	   007		
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 388
+	MINSRC:COMPRO PALX	Page 4.54 	Command Processor
+
+	022114	   007		
+	022115	   007			msgs:	       .byte %tdcrl, %tdcrl, 7, 7, 7, 7
+		022250			messag:		.blkb 132
+					
+					
+					
+	022250	104020			cpttyp:	.cnsget
+	022252	016501	000076			mov $cpdec(r5),r1
+					loop <			;hack to avoid complete lossage
+					  cmp r1,#1		;vt52 allowed
+					  exitl eq
+					  cmp r1,#6		;and AAA allowed
+					  exitl eq
+					  return
+						  >
+		000056				%loopn===%loopn+1
+		170057				.if gt  %loopn-7777
+						 .error Too many loops (maximum of 4095)
+						 .mexit
+						 .endc
+		000001				%level===%level+1
+		177772				.if gt  %level-7
+						 .error Loop depth exceeds 7
+						 .mexit
+						 .endc
+						.irp n,\%level
+						  %y'n===%loopn
+						  .endm
+		000056				  %y1===%loopn
+						.irp n,\%loopn
+						  %l'n===.		; loop back to here
+						  			;hack to avoid complete lossage
+						  cmp r1,#1		;vt52 allowed
+						  exitl eq
+						  cmp r1,#6		;and AAA allowed
+						  exitl eq
+						  return
+						  
+						  %x'n===.		; exit to here
+						  .endm
+		022256				  %l56===.		; loop back to here
+						  			;hack to avoid complete lossage
+	022256	020127	000001			  cmp r1,#1		;vt52 allowed
+						  exitl eq
+		000001				.if eq  %level
+						 .error EXITL not inside LOOP
+						 .mexit
+						 .endc
+						.irp n1,\%level
+						  .irp n2,\%y'n1
+						    .iif b  eq,	br %x'n2
+						    .ielse		beq %x'n2
+						    .endm
+						  .endm
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 389
+	MINSRC:COMPRO PALX	Page 4.55 	Command Processor
+
+						  .irp n2,\%y1
+						    .iif b  eq,	br %x'n2
+						    .ielse		beq %x'n2
+						    .endm
+						    .iif b  eq,	br %x56
+	022262	001404				    .ielse		beq %x56
+	022264	020127	000006			  cmp r1,#6		;and AAA allowed
+						  exitl eq
+		000001				.if eq  %level
+						 .error EXITL not inside LOOP
+						 .mexit
+						 .endc
+						.irp n1,\%level
+						  .irp n2,\%y'n1
+						    .iif b  eq,	br %x'n2
+						    .ielse		beq %x'n2
+						    .endm
+						  .endm
+						  .irp n2,\%y1
+						    .iif b  eq,	br %x'n2
+						    .ielse		beq %x'n2
+						    .endm
+						    .iif b  eq,	br %x56
+	022270	001401				    .ielse		beq %x56
+						  return
+	022272	000207				rts pc
+						  
+		022274				  %x56===.		; exit to here
+		000000				%level===%level-1
+	022274	020127	000010			cmp r1,#<20$-10$>/2
+					if lt,<
+					  asl r1
+					  push r0,10$(r1)
+					  call tctyp
+						  >
+						return
+	022316	000207				rts pc
+					
+					;	        0     1     2     3     4     5     6     7
+	022320	012124		
+	022322	012252		
+	022324	012400		
+	022326	012526		
+	022330	013002		
+	022332	013130		
+	022334	013256		
+	022336	013532			10$:	.word t.prt,t.v52,t.t61,t.h19,t.v00,t.v32,t.aaa,t.c08
+					20$:
+					
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 390
+	MINSRC:COMPRO PALX	Page 5 	Command Processor
+
+					
+	022340	005765	000014		conokp:	tst $cphso(r5)
+					if eq,<
+					  tst $cphsi(r5)
+						  if eq,<return>>
+						pop *			;flush return address
+						.regs $cptyo(r5),(pc)+
+					 .irp arg,<$cptyo(r5),(pc)+,,,,>
+					  .irp num,\.irpcnt
+					   .if idn arg,#0
+					     clr r'num
+					   .iff
+					    .lif nb arg
+					     mov arg,r'num
+					   .endc
+					  .endm
+					 .endm
+					  .irp num,\.irpcnt
+					   .if idn $cptyo(r5),#0
+					     clr r'num
+					   .iff
+					    .lif nb $cptyo(r5)
+					     mov $cptyo(r5),r'num
+					   .endc
+					  .endm
+					   .if idn $cptyo(r5),#0
+					     clr r0
+					   .iff
+					    .lif nb $cptyo(r5)
+	022360	016500	000010		     mov $cptyo(r5),r0
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn (pc)+,#0
+					     clr r'num
+					   .iff
+					    .lif nb (pc)+
+					     mov (pc)+,r'num
+					   .endc
+					  .endm
+					   .if idn (pc)+,#0
+					     clr r1
+					   .iff
+					    .lif nb (pc)+
+	022364	012701			     mov (pc)+,r1
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 391
+	MINSRC:COMPRO PALX	Page 5.1 	Command Processor
+
+					     clr r2
+					   .iff
+					    .lif nb 
+					     mov ,r2
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r3
+					   .iff
+					    .lif nb 
+					     mov ,r3
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r4
+					   .iff
+					    .lif nb 
+					     mov ,r4
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r5
+					   .iff
+					    .lif nb 
+					     mov ,r5
+					   .endc
+					  .litrl <
+					    .byte  %TDCRL
+					    .ascii /[Please close previous host connection first (with C-\ K).]/
+					    .byte  %TDCRL,0
+					    .even
+						    >
+		000105			%nlit==%nlit+1
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 392
+	MINSRC:COMPRO PALX	Page 5.2 	Command Processor
+
+					.irp num,\%nlit
+					 .iif nb , =lit'num
+					 .ielse		  .word lit'num
+					 defcon ^|lit'num:
+						    .byte  %TDCRL
+						    .ascii /[Please close previous host connection first (with C-\ K).]/
+						    .byte  %TDCRL,0
+						    .even
+						    |
+					 .endm
+					 .iif nb , =lit105
+	022366	051376			 .ielse		  .word lit105
+				 defcon ^|lit105:
+					    .byte  %TDCRL
+					    .ascii /[Please close previous host connection first (with C-\ K).]/
+					    .byte  %TDCRL,0
+					    .even
+						    |
+				append constants,^|lit105:
+					    .byte  %TDCRL
+					    .ascii /[Please close previous host connection first (with C-\ K).]/
+					    .byte  %TDCRL,0
+					    .even
+					    
+					|
+	022370	104366				.soutz
+						return
+	022372	000207				rts pc
+					
+					;;; SUPDUP initial block
+					
+				  dsect <
+						.blkb 6		;-n,,0
+						.blkb 6		;tctyp
+				$spopt::	.blkb 6		;ttyopt
+				  %spcbs==5
+				  %tpcbs==40			;fifth byte, bit 40
+				$spmxv::	.blkb 6		;vertical
+				$spmxh::	.blkb 6		;horizontal
+				$sprol::	.blkb 6		;ttyrol
+				$spsmt::	.blkb 6		;smarts
+				$spisp::	.blkb 6		;ispeed
+				$sposp::	.blkb 6		;ospeed
+					  >,l$spdp
+		022376			tmp::           .blkw 1
+					$namtbl:
+	022376	000066					.word 66
+	022400	   207		
+	022401	   207					.byte %tdcrl, %tdcrl
+	022402	   115		
+	022403	   141		
+	022404	   162		
+	022405	   153		
+	022406	   040		
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 393
+	MINSRC:COMPRO PALX	Page 5.3 	Command Processor
+
+	022407	   120		
+	022410	   154		
+	022411	   157		
+	022412	   164		
+	022413	   156		
+	022414	   151		
+	022415	   143		
+	022416	   153		
+	022417	   040		
+							.ascii /Mark Plotnick /
+	022420	   207					.byte %tdcrl
+	022421	   000					.byte 0
+	022422	000057					.word 57
+	022424	   207		
+	022425	   207					.byte %tdcrl, %tdcrl
+	022426	   112		
+	022427	   056		
+	022430	   040		
+	022431	   123		
+	022432	   143		
+	022433	   157		
+	022434	   164		
+	022435	   164		
+	022436	   040		
+	022437	   110		
+	022440	   141		
+	022441	   155		
+	022442	   151		
+	022443	   154		
+	022444	   164		
+	022445	   157		
+	022446	   156		
+	022447	   040		
+							.ascii /J. Scott Hamilton /
+	022450	   207					.byte %tdcrl
+	022451	   000					.byte 0
+	022452	000056					.word 56
+	022454	   207		
+	022455	   207					.byte %tdcrl, %tdcrl
+	022456	   122		
+	022457	   157		
+	022460	   156		
+	022461	   040		
+	022462	   123		
+	022463	   143		
+	022464	   150		
+	022465	   156		
+	022466	   145		
+	022467	   154		
+	022470	   154		
+	022471	   040		
+							.ascii /Ron Schnell /
+	022472	   207					.byte %tdcrl
+	022473	   000					.byte 0
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 394
+	MINSRC:COMPRO PALX	Page 5.4 	Command Processor
+
+	022474	000110					.word 110
+	022476	   207		
+	022477	   207					.byte %tdcrl, %tdcrl
+	022500	   107		
+	022501	   157		
+	022502	   162		
+	022503	   144		
+	022504	   157		
+	022505	   156		
+	022506	   040		
+	022507	   123		
+	022510	   164		
+	022511	   162		
+	022512	   157		
+	022513	   156		
+	022514	   147		
+	022515	   040		
+							.ascii /Gordon Strong /
+	022516	   207					.byte %tdcrl
+	022517	   000					.byte 0
+	022520	000001					.word 1
+	022522	   207		
+	022523	   207					.byte %tdcrl, %tdcrl
+	022524	   112		
+	022525	   157		
+	022526	   145		
+	022527	   040		
+	022530	   106		
+	022531	   162		
+	022532	   151		
+	022533	   163		
+	022534	   142		
+	022535	   151		
+	022536	   145		
+	022537	   040		
+							.ascii /Joe Frisbie /
+	022540	   207					.byte %tdcrl
+	022541	   000					.byte 0
+	022542	000060					.word 60
+	022544	   207		
+	022545	   207					.byte %tdcrl, %tdcrl
+	022546	   115		
+	022547	   141		
+	022550	   162		
+	022551	   153		
+	022552	   040		
+	022553	   110		
+	022554	   141		
+	022555	   155		
+	022556	   151		
+	022557	   154		
+	022560	   164		
+	022561	   157		
+	022562	   156		
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 395
+	MINSRC:COMPRO PALX	Page 5.5 	Command Processor
+
+	022563	   040		
+							.ascii /Mark Hamilton /
+	022564	   207					.byte %tdcrl
+	022565	   000					.byte   0
+	022566	000000					.word	0
+					
+					hakcon:	call conokp
+	022570	004767	177544			jsr pc,conokp
+	022574	016500	000076			mov $cpdec(r5),r0
+	022600	006300				asl r0
+	022602	020027	000066			cmp r0,#l$hstlst
+						if lo,<mov hstlst(r0),r0>
+						else  <mov $cpoct(r5),r0>
+		001215				gncnt===gncnt+1
+						.irp foo,\ifcnt
+						.irp bar,\gncnt
+						br g'bar
+					g'foo===.
+						mov $cpoct(r5),r0
+					g'bar===.
+						.endm
+						.endm
+						.irp bar,\gncnt
+						br g'bar
+					g1214===.
+						mov $cpoct(r5),r0
+					g'bar===.
+						.endm
+	022614	000402				br g1215
+		022616			g1214===.
+	022616	016500	000074			mov $cpoct(r5),r0
+		022622			g1215===.
+						push #1,(pc)+
+						  .string <SUPDUP>
+		000122			%nstr==%nstr+1
+					.irp num,\%nstr
+					 .iif nb , =str'num
+					 .ielse		  .word str'num
+					 defcon ^|str'num:.asciz SUPDUP
+						.even|
+					 .endm
+					 .iif nb , =str122
+	022630	051474			 .ielse		  .word str122
+				 defcon ^|str122:.asciz SUPDUP
+						.even|
+				append constants,^|str122:.asciz SUPDUP
+					.even
+					|
+						push r0
+						.regs #opncha,sp
+					 .irp arg,<#opncha,sp,,,,>
+					  .irp num,\.irpcnt
+					   .if idn arg,#0
+					     clr r'num
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 396
+	MINSRC:COMPRO PALX	Page 5.6 	Command Processor
+
+					   .iff
+					    .lif nb arg
+					     mov arg,r'num
+					   .endc
+					  .endm
+					 .endm
+					  .irp num,\.irpcnt
+					   .if idn #opncha,#0
+					     clr r'num
+					   .iff
+					    .lif nb #opncha
+					     mov #opncha,r'num
+					   .endc
+					  .endm
+					   .if idn #opncha,#0
+					     clr r0
+					   .iff
+					    .lif nb #opncha
+	022634	012700	047154		     mov #opncha,r0
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn sp,#0
+					     clr r'num
+					   .iff
+					    .lif nb sp
+					     mov sp,r'num
+					   .endc
+					  .endm
+					   .if idn sp,#0
+					     clr r1
+					   .iff
+					    .lif nb sp
+	022640	010601			     mov sp,r1
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r2
+					   .iff
+					    .lif nb 
+					     mov ,r2
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 397
+	MINSRC:COMPRO PALX	Page 5.7 	Command Processor
+
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r3
+					   .iff
+					    .lif nb 
+					     mov ,r3
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r4
+					   .iff
+					    .lif nb 
+					     mov ,r4
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r5
+					   .iff
+					    .lif nb 
+					     mov ,r5
+					   .endc
+	022642	104006				.open
+					if cs,<
+					  pop *,*,*
+					  return
+						  >
+						pop *,*,*
+	022664	112760	000004	000010		movb #md%sup,$clmod(r0)	;supdup in from the network
+	022672	112761	000000	000010		movb #md%raw,$clmod(r1)	;raw out to the network
+	022700	012765	000004	000026		mov #md%sup,$cphsm(r5)	;save remember host mode
+	022706	010065	000012			mov r0,$cphsi(r5)	;save input channel
+	022712	010165	000014			mov r1,$cphso(r5)	;save output channel
+	022716	012765	024036	000016		mov #suptyo,$cphoc(r5)	;host output continuation is supdup tyo
+	022724	012765	016310	000020		mov #cp$hic,$cphic(r5)	;standard host input continuation
+						.regs ,#chnevr,#%cphsi,r5	;r0 still has channel
+					 .irp arg,<,#chnevr,#%cphsi,r5,,>
+					  .irp num,\.irpcnt
+					   .if idn arg,#0
+					     clr r'num
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 398
+	MINSRC:COMPRO PALX	Page 5.8 	Command Processor
+
+					   .iff
+					    .lif nb arg
+					     mov arg,r'num
+					   .endc
+					  .endm
+					 .endm
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r0
+					   .iff
+					    .lif nb 
+					     mov ,r0
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn #chnevr,#0
+					     clr r'num
+					   .iff
+					    .lif nb #chnevr
+					     mov #chnevr,r'num
+					   .endc
+					  .endm
+					   .if idn #chnevr,#0
+					     clr r1
+					   .iff
+					    .lif nb #chnevr
+	022732	012701	007644		     mov #chnevr,r1
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn #%cphsi,#0
+					     clr r'num
+					   .iff
+					    .lif nb #%cphsi
+					     mov #%cphsi,r'num
+					   .endc
+					  .endm
+					   .if idn #%cphsi,#0
+					     clr r2
+					   .iff
+					    .lif nb #%cphsi
+	022736	012702	020000		     mov #%cphsi,r2
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn r5,#0
+					     clr r'num
+					   .iff
+					    .lif nb r5
+					     mov r5,r'num
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 399
+	MINSRC:COMPRO PALX	Page 5.9 	Command Processor
+
+					   .endc
+					  .endm
+					   .if idn r5,#0
+					     clr r3
+					   .iff
+					    .lif nb r5
+	022742	010503			     mov r5,r3
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r4
+					   .iff
+					    .lif nb 
+					     mov ,r4
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r5
+					   .iff
+					    .lif nb 
+					     mov ,r5
+					   .endc
+	022744	062703	000000			add #$cpevn,r3		;point to even word
+	022750	104346				.ioctl			;set event receive bits
+						if cs,<bpt>
+						push #l$spdp
+						call fsmall
+	022762	004767	160170			jsr pc,fsmall
+						call fsmclr
+	022766	004767	160452			jsr pc,fsmclr
+						pop r4
+						if eq,<halt>
+	023000	104020				.cnsget
+						if cs,<halt>
+	023006	010001				mov r0,r1
+						.regs $cptyo(r5),ttyist(r1)
+					 .irp arg,<$cptyo(r5),ttyist(r1),,,,>
+					  .irp num,\.irpcnt
+					   .if idn arg,#0
+					     clr r'num
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 400
+	MINSRC:COMPRO PALX	Page 5.10 	Command Processor
+
+					   .iff
+					    .lif nb arg
+					     mov arg,r'num
+					   .endc
+					  .endm
+					 .endm
+					  .irp num,\.irpcnt
+					   .if idn $cptyo(r5),#0
+					     clr r'num
+					   .iff
+					    .lif nb $cptyo(r5)
+					     mov $cptyo(r5),r'num
+					   .endc
+					  .endm
+					   .if idn $cptyo(r5),#0
+					     clr r0
+					   .iff
+					    .lif nb $cptyo(r5)
+	023010	016500	000010		     mov $cptyo(r5),r0
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ttyist(r1),#0
+					     clr r'num
+					   .iff
+					    .lif nb ttyist(r1)
+					     mov ttyist(r1),r'num
+					   .endc
+					  .endm
+					   .if idn ttyist(r1),#0
+					     clr r1
+					   .iff
+					    .lif nb ttyist(r1)
+	023014	016101	053152		     mov ttyist(r1),r1
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r2
+					   .iff
+					    .lif nb 
+					     mov ,r2
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 401
+	MINSRC:COMPRO PALX	Page 5.11 	Command Processor
+
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r3
+					   .iff
+					    .lif nb 
+					     mov ,r3
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r4
+					   .iff
+					    .lif nb 
+					     mov ,r4
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r5
+					   .iff
+					    .lif nb 
+					     mov ,r5
+					   .endc
+	023020	104366				.soutz			;send the initial string
+					
+	023022	104020				.cnsget
+	023024	012714	037477			mov #77+<77_8>,(r4)
+	023030	012764	000070	000002		mov #<100-<l$spdp/6-1>>,2(r4)	;-n,,0
+	023036	112764	000007	000013		movb #7,6+5(r4)		;tctyp = 7 (software)
+					
+	023044	016064	052622	000014		mov ttyop1(r0),$spopt+0(r4)
+	023052	016064	052666	000016		mov ttyop2(r0),$spopt+2(r4)
+	023060	016064	052732	000020		mov ttyop3(r0),$spopt+4(r4)
+	023066	152764	000040	000021		bisb #%tpcbs,$spopt+%spcbs(r4)	;turn on C-\ hacking
+					
+	023074	016064	052776	000044		mov ttysm1(r0),$spsmt+0(r4)
+	023102	016064	053042	000046		mov ttysm2(r0),$spsmt+2(r4)
+	023110	016064	053106	000050		mov ttysm3(r0),$spsmt+4(r4)
+					
+	023116	116001	052512			movb ttymxv(r0),r1
+	023122	012702	000022			mov #$spmxv,r2
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 402
+	MINSRC:COMPRO PALX	Page 5.12 	Command Processor
+
+						call 10$
+	023126	004767	000134			jsr pc,10$
+						
+	023132	116001	052513			movb ttymxh(r0),r1
+	023136	005301				dec r1			;SUPDUP is really one less!!
+	023140	012702	000030			mov #$spmxh,r2
+						call 10$
+	023144	004767	000116			jsr pc,10$
+						
+	023150	116064	052556	000043		movb ttyrol(r0),$sprol+5(r4)
+					
+	023156	016001	053216			mov ttyspd(r0),r1
+	023162	012702	000052			mov #$spisp,r2
+						call 10$
+	023166	004767	000074			jsr pc,10$
+	023172	016464	000054	000062		mov $spisp+2(r4),$sposp+2(r4)
+	023200	016464	000056	000064		mov $spisp+4(r4),$sposp+4(r4)
+					
+	023206	010003				mov r0,r3		;save tty in r3
+	023210	016500	000014			mov $cphso(r5),r0
+	023214	010401				mov r4,r1
+	023216	012702	000066			mov #l$spdp,r2
+	023222	104370				.sout
+						if cs,<halt>
+					
+						push r4
+						call fsmfre
+	023232	004767	160300			jsr pc,fsmfre
+					
+	023236	012701	000300			mov #300,r1
+	023242	104374				.bout
+	023244	012701	000302			mov #302,r1
+	023250	104374				.bout
+	023252	016301	052402			mov ttyloc(r3),r1
+	023256	104366				.soutz
+	023260	005001				clr r1
+	023262	104374				.bout
+					
+						return
+	023264	000207				rts pc
+					
+					10$:	push r4
+	023270	060204				add r2,r4
+	023272	020127	177777			cmp r1,#-1
+						if eq,<movb #20,(r4)>
+					else <
+					  add #6,r4
+					  loop <
+					    mov r1,r2
+					    bic #mask6,r2
+					    movb r2,-(r4)
+					    ash #-6,r1
+					    bic #mask10,r1	;only low 10 bits are valid now
+					    tst r1
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 403
+	MINSRC:COMPRO PALX	Page 5.13 	Command Processor
+
+					    rptl ne
+						  > >
+		001224				gncnt===gncnt+1
+						.irp foo,\ifcnt
+						.irp bar,\gncnt
+						br g'bar
+					g'foo===.
+						
+						  add #6,r4
+						  loop <
+						    mov r1,r2
+						    bic #mask6,r2
+						    movb r2,-(r4)
+						    ash #-6,r1
+						    bic #mask10,r1	;only low 10 bits are valid now
+						    tst r1
+						    rptl ne
+						  > 
+					g'bar===.
+						.endm
+						.endm
+						.irp bar,\gncnt
+						br g'bar
+					g1223===.
+						
+						  add #6,r4
+						  loop <
+						    mov r1,r2
+						    bic #mask6,r2
+						    movb r2,-(r4)
+						    ash #-6,r1
+						    bic #mask10,r1	;only low 10 bits are valid now
+						    tst r1
+						    rptl ne
+						  > 
+					g'bar===.
+						.endm
+	023304	000414				br g1224
+		023306			g1223===.
+						
+	023306	062704	000006			  add #6,r4
+					  loop <
+					    mov r1,r2
+					    bic #mask6,r2
+					    movb r2,-(r4)
+					    ash #-6,r1
+					    bic #mask10,r1	;only low 10 bits are valid now
+					    tst r1
+					    rptl ne
+						  > 
+		000057				%loopn===%loopn+1
+		170060				.if gt  %loopn-7777
+						 .error Too many loops (maximum of 4095)
+						 .mexit
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 404
+	MINSRC:COMPRO PALX	Page 5.14 	Command Processor
+
+						 .endc
+		000001				%level===%level+1
+		177772				.if gt  %level-7
+						 .error Loop depth exceeds 7
+						 .mexit
+						 .endc
+						.irp n,\%level
+						  %y'n===%loopn
+						  .endm
+		000057				  %y1===%loopn
+						.irp n,\%loopn
+						  %l'n===.		; loop back to here
+						  
+						    mov r1,r2
+						    bic #mask6,r2
+						    movb r2,-(r4)
+						    ash #-6,r1
+						    bic #mask10,r1	;only low 10 bits are valid now
+						    tst r1
+						    rptl ne
+						  
+						  %x'n===.		; exit to here
+						  .endm
+		023312				  %l57===.		; loop back to here
+						  
+	023312	010102				    mov r1,r2
+	023314	042702	177700			    bic #mask6,r2
+	023320	110244				    movb r2,-(r4)
+	023322	072127	177772			    ash #-6,r1
+	023326	042701	176000			    bic #mask10,r1	;only low 10 bits are valid now
+	023332	005701				    tst r1
+						    rptl ne
+		000001				.if eq  %level
+						 .error	RPTL not inside LOOP
+						 .mexit
+						 .endc
+						.irp n1,\%level
+						  .irp n2,\%y'n1
+						    .iif b  ne,	br %l'n2
+						    .ielse		bne %l'n2
+						    .endm
+						  .endm
+						  .irp n2,\%y1
+						    .iif b  ne,	br %l'n2
+						    .ielse		bne %l'n2
+						    .endm
+						    .iif b  ne,	br %l57
+	023334	001366				    .ielse		bne %l57
+						  
+		023336				  %x57===.		; exit to here
+		000000				%level===%level-1
+		023336			g1224===.
+						pop r4
+						return
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 405
+	MINSRC:COMPRO PALX	Page 5.15 	Command Processor
+
+	023340	000207				rts pc
+					
+					tcon:	.string <PRIME>
+		000123			%nstr==%nstr+1
+					.irp num,\%nstr
+					 .iif nb , =str'num
+					 .ielse		  .word str'num
+					 defcon ^|str'num:.asciz PRIME
+						.even|
+					 .endm
+					 .iif nb , =str123
+	023342	051504			 .ielse		  .word str123
+				 defcon ^|str123:.asciz PRIME
+						.even|
+				append constants,^|str123:.asciz PRIME
+					.even
+					|
+	023344	022401				.word 22401
+						.string <SCICARDS>
+		000124			%nstr==%nstr+1
+					.irp num,\%nstr
+					 .iif nb , =str'num
+					 .ielse		  .word str'num
+					 defcon ^|str'num:.asciz SCICARDS
+						.even|
+					 .endm
+					 .iif nb , =str124
+	023346	051512			 .ielse		  .word str124
+				 defcon ^|str124:.asciz SCICARDS
+						.even|
+				append constants,^|str124:.asciz SCICARDS
+					.even
+					|
+	023350	022401				.word 22401
+		000010			l$tcon==.-tcon
+					
+					gtkcon:	call conokp
+	023352	004767	176762			jsr pc,conokp
+	023356	016500	000076			mov $cpdec(r5),r0
+	023362	006300				asl r0
+	023364	006300				asl r0
+	023366	020027	000010			cmp r0,#l$tcon
+					if his,<
+					  .regs $cptyo(r5),(pc)+
+					  .litrl <
+					    .byte  %TDCRL
+					    .ascii /[Numeric argument does not specify a known path.]/
+					    .byte  %TDCRL,0
+					    .even
+					    >
+					  .soutz
+					  return
+						  >
+						push #2,tcon(r0),tcon+2(r0)
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 406
+	MINSRC:COMPRO PALX	Page 5.16 	Command Processor
+
+	023424	000423				br ttyln2
+					
+					atkcon:
+		000003			.if z system-10			;only for sipb now
+						call conokp
+						push #t.hml
+						.regs #opnatk,sp
+						.open
+						if cs,<
+						  pop *
+						  return
+						  >
+						pop *
+						jcall ttyln3
+					.iff
+						return
+	023426	000207				rts pc
+					.endc
+					
+					ttylnk:
+						call conokp
+	023430	004767	176704			jsr pc,conokp
+	023434	016500	000076			mov $cpdec(r5),r0
+	023440	006300				asl r0
+	023442	020027	000066			cmp r0,#l$hstlst
+						if lo,<mov hstlst(r0),r0>
+						else  <mov $cpoct(r5),r0>
+		001227				gncnt===gncnt+1
+						.irp foo,\ifcnt
+						.irp bar,\gncnt
+						br g'bar
+					g'foo===.
+						mov $cpoct(r5),r0
+					g'bar===.
+						.endm
+						.endm
+						.irp bar,\gncnt
+						br g'bar
+					g1226===.
+						mov $cpoct(r5),r0
+					g'bar===.
+						.endm
+	023454	000402				br g1227
+		023456			g1226===.
+	023456	016500	000074			mov $cpoct(r5),r0
+		023462			g1227===.
+						push #1,(pc)+
+						  .string <TTYLINK>
+		000125			%nstr==%nstr+1
+					.irp num,\%nstr
+					 .iif nb , =str'num
+					 .ielse		  .word str'num
+					 defcon ^|str'num:.asciz TTYLINK
+						.even|
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 407
+	MINSRC:COMPRO PALX	Page 5.17 	Command Processor
+
+					 .endm
+					 .iif nb , =str125
+	023470	051610			 .ielse		  .word str125
+				 defcon ^|str125:.asciz TTYLINK
+						.even|
+				append constants,^|str125:.asciz TTYLINK
+					.even
+					|
+						push r0
+					ttyln2:	.regs #opncha,sp
+					 .irp arg,<#opncha,sp,,,,>
+					  .irp num,\.irpcnt
+					   .if idn arg,#0
+					     clr r'num
+					   .iff
+					    .lif nb arg
+					     mov arg,r'num
+					   .endc
+					  .endm
+					 .endm
+					  .irp num,\.irpcnt
+					   .if idn #opncha,#0
+					     clr r'num
+					   .iff
+					    .lif nb #opncha
+					     mov #opncha,r'num
+					   .endc
+					  .endm
+					   .if idn #opncha,#0
+					     clr r0
+					   .iff
+					    .lif nb #opncha
+	023474	012700	047154		     mov #opncha,r0
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn sp,#0
+					     clr r'num
+					   .iff
+					    .lif nb sp
+					     mov sp,r'num
+					   .endc
+					  .endm
+					   .if idn sp,#0
+					     clr r1
+					   .iff
+					    .lif nb sp
+	023500	010601			     mov sp,r1
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 408
+	MINSRC:COMPRO PALX	Page 5.18 	Command Processor
+
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r2
+					   .iff
+					    .lif nb 
+					     mov ,r2
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r3
+					   .iff
+					    .lif nb 
+					     mov ,r3
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r4
+					   .iff
+					    .lif nb 
+					     mov ,r4
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r5
+					   .iff
+					    .lif nb 
+					     mov ,r5
+					   .endc
+	023502	104006				.open
+					if cs,<
+					  pop *,*,*
+					  return
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 409
+	MINSRC:COMPRO PALX	Page 5.19 	Command Processor
+
+						  >
+						pop *,*,*
+	023524	112760	000002	000010	ttyln3:	movb #md%asc,$clmod(r0)	;ascii input from the network
+	023532	112761	000002	000010		movb #md%asc,$clmod(r1)	;ascii out to the network
+	023540	012765	000002	000026		mov  #md%asc,$cphsm(r5)	;remember host mode
+	023546	010065	000012			mov  r0,$cphsi(r5)	;save input  channel
+	023552	010165	000014			mov  r1,$cphso(r5)	;save output channel
+	023556	012765	023614	000016		mov  #ttltyo,$cphoc(r5)	;host output continuation to save meta bit
+	023564	012765	016310	000020		mov  #cp$hic,$cphic(r5)	;standard host input continuation
+						.regs ,#chnevr,#%cphsi,r5	;r0 still has channel
+					 .irp arg,<,#chnevr,#%cphsi,r5,,>
+					  .irp num,\.irpcnt
+					   .if idn arg,#0
+					     clr r'num
+					   .iff
+					    .lif nb arg
+					     mov arg,r'num
+					   .endc
+					  .endm
+					 .endm
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r0
+					   .iff
+					    .lif nb 
+					     mov ,r0
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn #chnevr,#0
+					     clr r'num
+					   .iff
+					    .lif nb #chnevr
+					     mov #chnevr,r'num
+					   .endc
+					  .endm
+					   .if idn #chnevr,#0
+					     clr r1
+					   .iff
+					    .lif nb #chnevr
+	023572	012701	007644		     mov #chnevr,r1
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn #%cphsi,#0
+					     clr r'num
+					   .iff
+					    .lif nb #%cphsi
+					     mov #%cphsi,r'num
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 410
+	MINSRC:COMPRO PALX	Page 5.20 	Command Processor
+
+					   .endc
+					  .endm
+					   .if idn #%cphsi,#0
+					     clr r2
+					   .iff
+					    .lif nb #%cphsi
+	023576	012702	020000		     mov #%cphsi,r2
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn r5,#0
+					     clr r'num
+					   .iff
+					    .lif nb r5
+					     mov r5,r'num
+					   .endc
+					  .endm
+					   .if idn r5,#0
+					     clr r3
+					   .iff
+					    .lif nb r5
+	023602	010503			     mov r5,r3
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r4
+					   .iff
+					    .lif nb 
+					     mov ,r4
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r5
+					   .iff
+					    .lif nb 
+					     mov ,r5
+					   .endc
+	023604	062703	000000			add #$cpevn,r3		;point to even word
+	023610	104346				.ioctl			;set event receive bits
+					
+						return
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 411
+	MINSRC:COMPRO PALX	Page 5.21 	Command Processor
+
+	023612	000207				rts pc
+					
+	023614	032701	000200		ttltyo:	bit #%txctl,r1
+						if ne,<bic #mask5-%txmta,r1>
+	023626	032701	000400			bit #%txmta,r1
+						if ne,<bis #200,r1>
+	023640	042701	177400			bic #mask8,r1
+						jcall cp$hso		;send the character
+	023644	000167	172444			jmp cp$hso
+					
+					rfinger:
+						call conokp
+	023650	004767	176464			jsr pc,conokp
+	023654	016500	000076			mov $cpdec(r5),r0
+	023660	006300				asl r0
+	023662	020027	000066			cmp r0,#l$hstlst
+						if lo,<mov hstlst(r0),r0>
+						else  <mov $cpoct(r5),r0>
+		001234				gncnt===gncnt+1
+						.irp foo,\ifcnt
+						.irp bar,\gncnt
+						br g'bar
+					g'foo===.
+						mov $cpoct(r5),r0
+					g'bar===.
+						.endm
+						.endm
+						.irp bar,\gncnt
+						br g'bar
+					g1233===.
+						mov $cpoct(r5),r0
+					g'bar===.
+						.endm
+	023674	000402				br g1234
+		023676			g1233===.
+	023676	016500	000074			mov $cpoct(r5),r0
+		023702			g1234===.
+						push #2,(pc)+
+						  .string <NAME>
+		000126			%nstr==%nstr+1
+					.irp num,\%nstr
+					 .iif nb , =str'num
+					 .ielse		  .word str'num
+					 defcon ^|str'num:.asciz NAME
+						.even|
+					 .endm
+					 .iif nb , =str126
+	023710	051620			 .ielse		  .word str126
+				 defcon ^|str126:.asciz NAME
+						.even|
+				append constants,^|str126:.asciz NAME
+					.even
+					|
+						push r0
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 412
+	MINSRC:COMPRO PALX	Page 5.22 	Command Processor
+
+						.regs #opncha,sp
+					 .irp arg,<#opncha,sp,,,,>
+					  .irp num,\.irpcnt
+					   .if idn arg,#0
+					     clr r'num
+					   .iff
+					    .lif nb arg
+					     mov arg,r'num
+					   .endc
+					  .endm
+					 .endm
+					  .irp num,\.irpcnt
+					   .if idn #opncha,#0
+					     clr r'num
+					   .iff
+					    .lif nb #opncha
+					     mov #opncha,r'num
+					   .endc
+					  .endm
+					   .if idn #opncha,#0
+					     clr r0
+					   .iff
+					    .lif nb #opncha
+	023714	012700	047154		     mov #opncha,r0
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn sp,#0
+					     clr r'num
+					   .iff
+					    .lif nb sp
+					     mov sp,r'num
+					   .endc
+					  .endm
+					   .if idn sp,#0
+					     clr r1
+					   .iff
+					    .lif nb sp
+	023720	010601			     mov sp,r1
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r2
+					   .iff
+					    .lif nb 
+					     mov ,r2
+					   .endc
+					  .irp num,\.irpcnt
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 413
+	MINSRC:COMPRO PALX	Page 5.23 	Command Processor
+
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r3
+					   .iff
+					    .lif nb 
+					     mov ,r3
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r4
+					   .iff
+					    .lif nb 
+					     mov ,r4
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r5
+					   .iff
+					    .lif nb 
+					     mov ,r5
+					   .endc
+	023722	104006				.open
+					if cs,<
+					  pop *,*,*
+					  return
+						  >
+						pop *,*,*
+	023744	112760	000006	000010		movb #md%lsp,$clmod(r0)
+	023752	010065	000012			mov r0,$cphsi(r5)
+	023756	010100				mov r1,r0		;xmit channel in r0
+	023760	104360				.close			;and close, it, not allowed to xmit to it
+	023762	012765	000006	000026		mov #md%lsp,$cphsm(r5)	;mode is LISP for this host
+	023770	012765	016310	000020		mov #cp$hic,$cphic(r5)	;standard host input continuation
+						.regs $cphsi(r5),#chnevr,#%cphsi,r5	;channel, command, bits, pointer
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 414
+	MINSRC:COMPRO PALX	Page 5.24 	Command Processor
+
+					 .irp arg,<$cphsi(r5),#chnevr,#%cphsi,r5,,>
+					  .irp num,\.irpcnt
+					   .if idn arg,#0
+					     clr r'num
+					   .iff
+					    .lif nb arg
+					     mov arg,r'num
+					   .endc
+					  .endm
+					 .endm
+					  .irp num,\.irpcnt
+					   .if idn $cphsi(r5),#0
+					     clr r'num
+					   .iff
+					    .lif nb $cphsi(r5)
+					     mov $cphsi(r5),r'num
+					   .endc
+					  .endm
+					   .if idn $cphsi(r5),#0
+					     clr r0
+					   .iff
+					    .lif nb $cphsi(r5)
+	023776	016500	000012		     mov $cphsi(r5),r0
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn #chnevr,#0
+					     clr r'num
+					   .iff
+					    .lif nb #chnevr
+					     mov #chnevr,r'num
+					   .endc
+					  .endm
+					   .if idn #chnevr,#0
+					     clr r1
+					   .iff
+					    .lif nb #chnevr
+	024002	012701	007644		     mov #chnevr,r1
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn #%cphsi,#0
+					     clr r'num
+					   .iff
+					    .lif nb #%cphsi
+					     mov #%cphsi,r'num
+					   .endc
+					  .endm
+					   .if idn #%cphsi,#0
+					     clr r2
+					   .iff
+					    .lif nb #%cphsi
+	024006	012702	020000		     mov #%cphsi,r2
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn r5,#0
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 415
+	MINSRC:COMPRO PALX	Page 5.25 	Command Processor
+
+					     clr r'num
+					   .iff
+					    .lif nb r5
+					     mov r5,r'num
+					   .endc
+					  .endm
+					   .if idn r5,#0
+					     clr r3
+					   .iff
+					    .lif nb r5
+	024012	010503			     mov r5,r3
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r4
+					   .iff
+					    .lif nb 
+					     mov ,r4
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r5
+					   .iff
+					    .lif nb 
+					     mov ,r5
+					   .endc
+	024014	062703	000000			add #$cpevn,r3		;point to event word
+	024020	104346				.ioctl			;set event receive bits
+						.regs $cptyo(r5),#%tdcrl
+					 .irp arg,<$cptyo(r5),#%tdcrl,,,,>
+					  .irp num,\.irpcnt
+					   .if idn arg,#0
+					     clr r'num
+					   .iff
+					    .lif nb arg
+					     mov arg,r'num
+					   .endc
+					  .endm
+					 .endm
+					  .irp num,\.irpcnt
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 416
+	MINSRC:COMPRO PALX	Page 5.26 	Command Processor
+
+					   .if idn $cptyo(r5),#0
+					     clr r'num
+					   .iff
+					    .lif nb $cptyo(r5)
+					     mov $cptyo(r5),r'num
+					   .endc
+					  .endm
+					   .if idn $cptyo(r5),#0
+					     clr r0
+					   .iff
+					    .lif nb $cptyo(r5)
+	024022	016500	000010		     mov $cptyo(r5),r0
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn #%tdcrl,#0
+					     clr r'num
+					   .iff
+					    .lif nb #%tdcrl
+					     mov #%tdcrl,r'num
+					   .endc
+					  .endm
+					   .if idn #%tdcrl,#0
+					     clr r1
+					   .iff
+					    .lif nb #%tdcrl
+	024026	012701	000207		     mov #%tdcrl,r1
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r2
+					   .iff
+					    .lif nb 
+					     mov ,r2
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r3
+					   .iff
+					    .lif nb 
+					     mov ,r3
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 417
+	MINSRC:COMPRO PALX	Page 5.27 	Command Processor
+
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r4
+					   .iff
+					    .lif nb 
+					     mov ,r4
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r5
+					   .iff
+					    .lif nb 
+					     mov ,r5
+					   .endc
+	024032	104374				.bout
+					
+						return
+	024034	000207				rts pc
+						
+		000034			%cbs==<'\>-<'@>
+	024036	032701	177600		suptyo:	bit #mask7,r1		;is it 7-bit already
+					if eq,<			;yup
+					  cmp r1,#%cbs		;is it C-\
+					  if eq,<call cp$hso>	;output it to quote itself
+					  jcall cp$hso		;output the 7-bit character
+						  >
+						push r1
+	024064	012701	000034			mov #%cbs,r1
+						call cp$hso
+	024070	004767	172220			jsr pc,cp$hso
+	024074	011601				mov (sp),r1
+	024076	006301				asl r1
+	024100	000301				swab r1
+	024102	042701	177740			bic #mask5,r1
+	024106	052701	000100			bis #100,r1
+						call cp$hso
+	024112	004767	172176			jsr pc,cp$hso
+						pop r1
+	024120	042701	177600			bic #mask7,r1
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 418
+	MINSRC:COMPRO PALX	Page 5.28 	Command Processor
+
+						jcall cp$hso
+	024124	000167	172164			jmp cp$hso
+					
+					telnet:	call conokp
+	024130	004767	176204			jsr pc,conokp
+	024134	016500	000076			mov $cpdec(r5),r0
+	024140	006300				asl r0
+	024142	020027	000066			cmp r0,#l$hstlst
+						if lo,<mov hstlst(r0),r0>
+						else  <mov $cpoct(r5),r0>
+		001241				gncnt===gncnt+1
+						.irp foo,\ifcnt
+						.irp bar,\gncnt
+						br g'bar
+					g'foo===.
+						mov $cpoct(r5),r0
+					g'bar===.
+						.endm
+						.endm
+						.irp bar,\gncnt
+						br g'bar
+					g1240===.
+						mov $cpoct(r5),r0
+					g'bar===.
+						.endm
+	024154	000402				br g1241
+		024156			g1240===.
+	024156	016500	000074			mov $cpoct(r5),r0
+		024162			g1241===.
+						push #1,(pc)+
+						  .string <TELNET>
+		000127			%nstr==%nstr+1
+					.irp num,\%nstr
+					 .iif nb , =str'num
+					 .ielse		  .word str'num
+					 defcon ^|str'num:.asciz TELNET
+						.even|
+					 .endm
+					 .iif nb , =str127
+	024170	051626			 .ielse		  .word str127
+				 defcon ^|str127:.asciz TELNET
+						.even|
+				append constants,^|str127:.asciz TELNET
+					.even
+					|
+						push r0
+						.regs #opncha,sp
+					 .irp arg,<#opncha,sp,,,,>
+					  .irp num,\.irpcnt
+					   .if idn arg,#0
+					     clr r'num
+					   .iff
+					    .lif nb arg
+					     mov arg,r'num
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 419
+	MINSRC:COMPRO PALX	Page 5.29 	Command Processor
+
+					   .endc
+					  .endm
+					 .endm
+					  .irp num,\.irpcnt
+					   .if idn #opncha,#0
+					     clr r'num
+					   .iff
+					    .lif nb #opncha
+					     mov #opncha,r'num
+					   .endc
+					  .endm
+					   .if idn #opncha,#0
+					     clr r0
+					   .iff
+					    .lif nb #opncha
+	024174	012700	047154		     mov #opncha,r0
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn sp,#0
+					     clr r'num
+					   .iff
+					    .lif nb sp
+					     mov sp,r'num
+					   .endc
+					  .endm
+					   .if idn sp,#0
+					     clr r1
+					   .iff
+					    .lif nb sp
+	024200	010601			     mov sp,r1
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r2
+					   .iff
+					    .lif nb 
+					     mov ,r2
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 420
+	MINSRC:COMPRO PALX	Page 5.30 	Command Processor
+
+					     clr r3
+					   .iff
+					    .lif nb 
+					     mov ,r3
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r4
+					   .iff
+					    .lif nb 
+					     mov ,r4
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r5
+					   .iff
+					    .lif nb 
+					     mov ,r5
+					   .endc
+	024202	104006				.open
+					if cs,<
+					  pop *,*,*
+					  return
+						  >
+						pop *,*,*
+	024224	112760	000002	000010		movb #md%asc,$clmod(r0)	;ascii input from the network
+	024232	112761	000002	000010		movb #md%asc,$clmod(r1)	;ascii out to the network
+	024240	012765	000002	000026		mov  #md%asc,$cphsm(r5)	;remember host mode
+	024246	010065	000012			mov  r0,$cphsi(r5)	;save input  channel
+	024252	010165	000014			mov  r1,$cphso(r5)	;save output channel
+	024256	012765	024344	000016		mov  #teltyo,$cphoc(r5)	;host ouput continuation is telnet tyo
+	024264	012765	024530	000020		mov  #telhsi,$cphic(r5)	;host input continuation
+						.regs ,#chnevr,#%cphsi,r5	;r0 still has channel
+					 .irp arg,<,#chnevr,#%cphsi,r5,,>
+					  .irp num,\.irpcnt
+					   .if idn arg,#0
+					     clr r'num
+					   .iff
+					    .lif nb arg
+					     mov arg,r'num
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 421
+	MINSRC:COMPRO PALX	Page 5.31 	Command Processor
+
+					   .endc
+					  .endm
+					 .endm
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r0
+					   .iff
+					    .lif nb 
+					     mov ,r0
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn #chnevr,#0
+					     clr r'num
+					   .iff
+					    .lif nb #chnevr
+					     mov #chnevr,r'num
+					   .endc
+					  .endm
+					   .if idn #chnevr,#0
+					     clr r1
+					   .iff
+					    .lif nb #chnevr
+	024272	012701	007644		     mov #chnevr,r1
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn #%cphsi,#0
+					     clr r'num
+					   .iff
+					    .lif nb #%cphsi
+					     mov #%cphsi,r'num
+					   .endc
+					  .endm
+					   .if idn #%cphsi,#0
+					     clr r2
+					   .iff
+					    .lif nb #%cphsi
+	024276	012702	020000		     mov #%cphsi,r2
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn r5,#0
+					     clr r'num
+					   .iff
+					    .lif nb r5
+					     mov r5,r'num
+					   .endc
+					  .endm
+					   .if idn r5,#0
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 422
+	MINSRC:COMPRO PALX	Page 5.32 	Command Processor
+
+					     clr r3
+					   .iff
+					    .lif nb r5
+	024302	010503			     mov r5,r3
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r4
+					   .iff
+					    .lif nb 
+					     mov ,r4
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r5
+					   .iff
+					    .lif nb 
+					     mov ,r5
+					   .endc
+	024304	062703	000000			add #$cpevn,r3		;point to even word
+	024310	104346				.ioctl			;set event receive bits
+						if cs,<bpt>
+						.regs $cphso(r5),(pc)+
+					 .irp arg,<$cphso(r5),(pc)+,,,,>
+					  .irp num,\.irpcnt
+					   .if idn arg,#0
+					     clr r'num
+					   .iff
+					    .lif nb arg
+					     mov arg,r'num
+					   .endc
+					  .endm
+					 .endm
+					  .irp num,\.irpcnt
+					   .if idn $cphso(r5),#0
+					     clr r'num
+					   .iff
+					    .lif nb $cphso(r5)
+					     mov $cphso(r5),r'num
+					   .endc
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 423
+	MINSRC:COMPRO PALX	Page 5.33 	Command Processor
+
+					  .endm
+					   .if idn $cphso(r5),#0
+					     clr r0
+					   .iff
+					    .lif nb $cphso(r5)
+	024316	016500	000014		     mov $cphso(r5),r0
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn (pc)+,#0
+					     clr r'num
+					   .iff
+					    .lif nb (pc)+
+					     mov (pc)+,r'num
+					   .endc
+					  .endm
+					   .if idn (pc)+,#0
+					     clr r1
+					   .iff
+					    .lif nb (pc)+
+	024322	012701			     mov (pc)+,r1
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r2
+					   .iff
+					    .lif nb 
+					     mov ,r2
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r3
+					   .iff
+					    .lif nb 
+					     mov ,r3
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 424
+	MINSRC:COMPRO PALX	Page 5.34 	Command Processor
+
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r4
+					   .iff
+					    .lif nb 
+					     mov ,r4
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r5
+					   .iff
+					    .lif nb 
+					     mov ,r5
+					   .endc
+					  .litrl <
+						.byte %tniac,%tndo,%tnsga	;request it suppress go ahead
+						.byte %tniac,%tndo,%tneco	;request remote echo
+						.byte %tniac,%tnwil,%tnloc	;will do terminal location
+						.even
+							>
+		000107			%nlit==%nlit+1
+					.irp num,\%nlit
+					 .iif nb , =lit'num
+					 .ielse		  .word lit'num
+					 defcon ^|lit'num:
+							.byte %tniac,%tndo,%tnsga	;request it suppress go ahead
+							.byte %tniac,%tndo,%tneco	;request remote echo
+							.byte %tniac,%tnwil,%tnloc	;will do terminal location
+							.even
+							|
+					 .endm
+					 .iif nb , =lit107
+	024324	051636			 .ielse		  .word lit107
+				 defcon ^|lit107:
+						.byte %tniac,%tndo,%tnsga	;request it suppress go ahead
+						.byte %tniac,%tndo,%tneco	;request remote echo
+						.byte %tniac,%tnwil,%tnloc	;will do terminal location
+						.even
+							|
+				append constants,^|lit107:
+						.byte %tniac,%tndo,%tnsga	;request it suppress go ahead
+						.byte %tniac,%tndo,%tneco	;request remote echo
+						.byte %tniac,%tnwil,%tnloc	;will do terminal location
+						.even
+						
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 425
+	MINSRC:COMPRO PALX	Page 5.35 	Command Processor
+
+					|
+						.regs ,,#3+3+3
+					 .irp arg,<,,#3+3+3,,,>
+					  .irp num,\.irpcnt
+					   .if idn arg,#0
+					     clr r'num
+					   .iff
+					    .lif nb arg
+					     mov arg,r'num
+					   .endc
+					  .endm
+					 .endm
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r0
+					   .iff
+					    .lif nb 
+					     mov ,r0
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r1
+					   .iff
+					    .lif nb 
+					     mov ,r1
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn #3+3+3,#0
+					     clr r'num
+					   .iff
+					    .lif nb #3+3+3
+					     mov #3+3+3,r'num
+					   .endc
+					  .endm
+					   .if idn #3+3+3,#0
+					     clr r2
+					   .iff
+					    .lif nb #3+3+3
+	024326	012702	000011		     mov #3+3+3,r2
+					   .endc
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 426
+	MINSRC:COMPRO PALX	Page 5.36 	Command Processor
+
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r3
+					   .iff
+					    .lif nb 
+					     mov ,r3
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r4
+					   .iff
+					    .lif nb 
+					     mov ,r4
+					   .endc
+					  .irp num,\.irpcnt
+					   .if idn ,#0
+					     clr r'num
+					   .iff
+					    .lif nb 
+					     mov ,r'num
+					   .endc
+					  .endm
+					   .if idn ,#0
+					     clr r5
+					   .iff
+					    .lif nb 
+					     mov ,r5
+					   .endc
+	024332	104370				.sout
+	024334	012765	000420	000022		mov #<.tnfwa_.tneco>+<.tnfwa_.tnsga>,$cptnm(r5)
+						return
+	024342	000207				rts pc
+					
+	024344	020127	004102		teltyo:	cmp r1,#%txtop+'B
+					if eq,<			;also do IAC DMK when we do INS hacking
+					  .irp char,<%tniac,%tnip>
+					    movb #char,r1
+					    call cp$hso
+					  .endm
+					  return
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 427
+	MINSRC:COMPRO PALX	Page 5.37 	Command Processor
+
+						  >
+	024374	032701	000200			bit #%txctl,r1
+						if ne,<bic #mask5-%txmta,r1>
+	024406	032701	000400			bit #%txmta,r1
+						if ne,<bis #200,r1>
+	024420	042701	177400			bic #mask8,r1
+	024424	105701				tstb r1
+					if pl,<
+					  bit #<.tnfdo_.tneco>,$cptnm(r5)
+					  if eq,<
+					    .regs $cptyo(r5)
+					    push $clmod(r0)
+					    mov $cphsm(r5),$clmod(r0)
+					    .bout
+					    pop $clmod(r0)
+						  > >
+	024464	120127	000377			cmpb r1,#%tniac
+						if eq,<call cp$hso>	;if IAC, quote it
+						call cp$hso		;output the character
+	024476	004767	171612			jsr pc,cp$hso
+	024502	120127	000015			cmpb r1,#15		;is it a RETURN?
+					if eq,<			;yup, maybe send LINEFEED
+					  bit #<.tnldo_.tntbn>,$cptnm(r5)	;should I transmit binary?
+					  if eq,<		;no, so should send LINEFEED
+					    movb #12,r1		;now do a LINEFEED
+					    br teltyo		;and do it
+						  > >
+						return
+	024526	000207				rts pc
+					
+					telhsi:				;r0 is terminal output
+									;r1 is pointer
+									;r2 is count
+						push r3
+					loop <
+					  tst r2
+					  exitl eq		;finished if no more characters
+					  tst $cptnc(r5)	;is there a telnet continuation?
+					  if eq,<		;if not, scan for an IAC
+					    mov r2,r3
+					    clr r2
+					    push r1
+					    loop <
+					      cmpb (r1)+,#%tniac
+					      exitl eq
+					      inc r2
+					      sorl r3
+					      >
+					    pop r1		;get pointer back
+					    .sout		;output some characters
+					    tst r2
+					    if ne,<
+					      add r3,r2
+					      exitl
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 428
+	MINSRC:COMPRO PALX	Page 5.38 	Command Processor
+
+					      >
+					    mov r3,r2
+					    exitl eq
+					    mov #teliac,$cptnc(r5)	;set the telnet continuation
+					    >
+					  push r1
+					  loop <
+					    tst $cptnc(r5)
+					    exitl eq
+					    movb @(sp),r1
+					    inc (sp)
+					    call @$cptnc(r5)
+					    sorl r2
+					    >
+					  pop r1
+					  rptl
+						  >
+		000060				%loopn===%loopn+1
+		170061				.if gt  %loopn-7777
+						 .error Too many loops (maximum of 4095)
+						 .mexit
+						 .endc
+		000001				%level===%level+1
+		177772				.if gt  %level-7
+						 .error Loop depth exceeds 7
+						 .mexit
+						 .endc
+						.irp n,\%level
+						  %y'n===%loopn
+						  .endm
+		000060				  %y1===%loopn
+						.irp n,\%loopn
+						  %l'n===.		; loop back to here
+						  
+						  tst r2
+						  exitl eq		;finished if no more characters
+						  tst $cptnc(r5)	;is there a telnet continuation?
+						  if eq,<		;if not, scan for an IAC
+						    mov r2,r3
+						    clr r2
+						    push r1
+						    loop <
+						      cmpb (r1)+,#%tniac
+						      exitl eq
+						      inc r2
+						      sorl r3
+						      >
+						    pop r1		;get pointer back
+						    .sout		;output some characters
+						    tst r2
+						    if ne,<
+						      add r3,r2
+						      exitl
+						      >
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 429
+	MINSRC:COMPRO PALX	Page 5.39 	Command Processor
+
+						    mov r3,r2
+						    exitl eq
+						    mov #teliac,$cptnc(r5)	;set the telnet continuation
+						    >
+						  push r1
+						  loop <
+						    tst $cptnc(r5)
+						    exitl eq
+						    movb @(sp),r1
+						    inc (sp)
+						    call @$cptnc(r5)
+						    sorl r2
+						    >
+						  pop r1
+						  rptl
+						  
+						  %x'n===.		; exit to here
+						  .endm
+		024532				  %l60===.		; loop back to here
+						  
+	024532	005702				  tst r2
+						  exitl eq		;finished if no more characters
+		000001				.if eq  %level
+						 .error EXITL not inside LOOP
+						 .mexit
+						 .endc
+						.irp n1,\%level
+						  .irp n2,\%y'n1
+						    .iif b  eq,	br %x'n2
+						    .ielse		beq %x'n2
+						    .endm
+						  .endm
+						  .irp n2,\%y1
+						    .iif b  eq,	br %x'n2
+						    .ielse		beq %x'n2
+						    .endm
+						    .iif b  eq,	br %x60
+	024534	001442				    .ielse		beq %x60
+	024536	005765	000024			  tst $cptnc(r5)	;is there a telnet continuation?
+					  if eq,<		;if not, scan for an IAC
+					    mov r2,r3
+					    clr r2
+					    push r1
+					    loop <
+					      cmpb (r1)+,#%tniac
+					      exitl eq
+					      inc r2
+					      sorl r3
+					      >
+					    pop r1		;get pointer back
+					    .sout		;output some characters
+					    tst r2
+					    if ne,<
+					      add r3,r2
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 430
+	MINSRC:COMPRO PALX	Page 5.40 	Command Processor
+
+					      exitl
+					      >
+					    mov r3,r2
+					    exitl eq
+					    mov #teliac,$cptnc(r5)	;set the telnet continuation
+						    >
+						  push r1
+					  loop <
+					    tst $cptnc(r5)
+					    exitl eq
+					    movb @(sp),r1
+					    inc (sp)
+					    call @$cptnc(r5)
+					    sorl r2
+						    >
+		000062				%loopn===%loopn+1
+		170063				.if gt  %loopn-7777
+						 .error Too many loops (maximum of 4095)
+						 .mexit
+						 .endc
+		000002				%level===%level+1
+		177773				.if gt  %level-7
+						 .error Loop depth exceeds 7
+						 .mexit
+						 .endc
+						.irp n,\%level
+						  %y'n===%loopn
+						  .endm
+		000062				  %y2===%loopn
+						.irp n,\%loopn
+						  %l'n===.		; loop back to here
+						  
+						    tst $cptnc(r5)
+						    exitl eq
+						    movb @(sp),r1
+						    inc (sp)
+						    call @$cptnc(r5)
+						    sorl r2
+						    
+						  %x'n===.		; exit to here
+						  .endm
+		024614				  %l62===.		; loop back to here
+						  
+	024614	005765	000024			    tst $cptnc(r5)
+						    exitl eq
+		000002				.if eq  %level
+						 .error EXITL not inside LOOP
+						 .mexit
+						 .endc
+						.irp n1,\%level
+						  .irp n2,\%y'n1
+						    .iif b  eq,	br %x'n2
+						    .ielse		beq %x'n2
+						    .endm
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 431
+	MINSRC:COMPRO PALX	Page 5.41 	Command Processor
+
+						  .endm
+						  .irp n2,\%y2
+						    .iif b  eq,	br %x'n2
+						    .ielse		beq %x'n2
+						    .endm
+						    .iif b  eq,	br %x62
+	024620	001406				    .ielse		beq %x62
+	024622	117601	000000			    movb @(sp),r1
+	024626	005216				    inc (sp)
+						    call @$cptnc(r5)
+	024630	004775	000024			jsr pc,@$cptnc(r5)
+						    sorl r2
+		000002				.if eq  %level
+						 .error SORL not inside LOOP
+						 .mexit
+						 .endc
+						.irp n1,\%level
+						  .irp n2,\%y'n1
+						    sob r2,%l'n2
+						    .endm
+						  .endm
+						  .irp n2,\%y2
+						    sob r2,%l'n2
+						    .endm
+	024634	077211				    sob r2,%l62
+						    
+		024636				  %x62===.		; exit to here
+		000001				%level===%level-1
+						  pop r1
+						  rptl
+		000001				.if eq  %level
+						 .error	RPTL not inside LOOP
+						 .mexit
+						 .endc
+						.irp n1,\%level
+						  .irp n2,\%y'n1
+						    .iif b  ,	br %l'n2
+						    .ielse		b %l'n2
+						    .endm
+						  .endm
+						  .irp n2,\%y1
+						    .iif b  ,	br %l'n2
+						    .ielse		b %l'n2
+						    .endm
+	024640	000734				    .iif b  ,	br %l60
+						    .ielse		b %l60
+						  
+		024642				  %x60===.		; exit to here
+		000000				%level===%level-1
+						pop r3
+						return
+	024644	000207				rts pc
+					
+					
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 432
+	MINSRC:COMPRO PALX	Page 5.42 	Command Processor
+
+					telwti:	pop $cptnc(r5)		;save contination
+						return
+	024652	000207				rts pc
+	024654	005065	000024		tellfn:	clr $cptnc(r5)		;logically finished, no continuation
+						return
+	024660	000207				rts pc
+					
+	024662	120127	000377		teliac:	cmpb r1,#%tniac
+						if ne,<bpt>		;oops
+						call telwti		;wait for a character
+	024672	004767	177750			jsr pc,telwti
+						.irp what,<wil,wnt,do,dnt>
+						cmpb r1,#%tn'what
+						if eq,<jcall tel'what>
+						.endm
+	024676	120127	000373			cmpb r1,#%tnwil
+						if eq,<jcall telwil>
+	024710	120127	000374			cmpb r1,#%tnwnt
+						if eq,<jcall telwnt>
+	024722	120127	000375			cmpb r1,#%tndo
+						if eq,<jcall teldo>
+	024734	120127	000376			cmpb r1,#%tndnt
+						if eq,<jcall teldnt>
+	024746	120127	000377			cmpb r1,#%tniac
+						if eq,<.bout>		;send character if iac
+						jcall tellfn		;not recognized
+	024756	000167	177672			jmp tellfn
+					
+					telwil:	call telwti
+	024762	004767	177660			jsr pc,telwti
+					loop <
+					  cmpb r1,#%tneco
+					  if eq,<
+					    bit #.tnfwa_.tneco,$cptnm(r5)	;negotiation in progress?
+					    if eq,<call telsdo>	;send a do
+					    bis #<.tnfwa+.tnfdo>_.tneco,$cptnm(r5)	;remember modes
+					    exitl
+					    >
+					  cmpb r1,#%tnsga
+					  exitl eq		;fine with me
+					  cmpb r1,#%tntbn
+					  if eq,<
+					    call telsdo		;send a do
+					    bis #<.tnfwa+.tnfdo>_.tntbn,$cptnm(r5)
+					    exitl
+					    >
+				
+					  call telsdnt		;whatever it is, don't do it
+						  >
+		000063				%loopn===%loopn+1
+		170064				.if gt  %loopn-7777
+						 .error Too many loops (maximum of 4095)
+						 .mexit
+						 .endc
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 433
+	MINSRC:COMPRO PALX	Page 5.43 	Command Processor
+
+		000001				%level===%level+1
+		177772				.if gt  %level-7
+						 .error Loop depth exceeds 7
+						 .mexit
+						 .endc
+						.irp n,\%level
+						  %y'n===%loopn
+						  .endm
+		000063				  %y1===%loopn
+						.irp n,\%loopn
+						  %l'n===.		; loop back to here
+						  
+						  cmpb r1,#%tneco
+						  if eq,<
+						    bit #.tnfwa_.tneco,$cptnm(r5)	;negotiation in progress?
+						    if eq,<call telsdo>	;send a do
+						    bis #<.tnfwa+.tnfdo>_.tneco,$cptnm(r5)	;remember modes
+						    exitl
+						    >
+						  cmpb r1,#%tnsga
+						  exitl eq		;fine with me
+						  cmpb r1,#%tntbn
+						  if eq,<
+						    call telsdo		;send a do
+						    bis #<.tnfwa+.tnfdo>_.tntbn,$cptnm(r5)
+						    exitl
+						    >
+					
+						  call telsdnt		;whatever it is, don't do it
+						  
+						  %x'n===.		; exit to here
+						  .endm
+		024766				  %l63===.		; loop back to here
+						  
+	024766	120127	000001			  cmpb r1,#%tneco
+					  if eq,<
+					    bit #.tnfwa_.tneco,$cptnm(r5)	;negotiation in progress?
+					    if eq,<call telsdo>	;send a do
+					    bis #<.tnfwa+.tnfdo>_.tneco,$cptnm(r5)	;remember modes
+					    exitl
+						    >
+	025020	120127	000003			  cmpb r1,#%tnsga
+						  exitl eq		;fine with me
+		000001				.if eq  %level
+						 .error EXITL not inside LOOP
+						 .mexit
+						 .endc
+						.irp n1,\%level
+						  .irp n2,\%y'n1
+						    .iif b  eq,	br %x'n2
+						    .ielse		beq %x'n2
+						    .endm
+						  .endm
+						  .irp n2,\%y1
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 434
+	MINSRC:COMPRO PALX	Page 5.44 	Command Processor
+
+						    .iif b  eq,	br %x'n2
+						    .ielse		beq %x'n2
+						    .endm
+						    .iif b  eq,	br %x63
+	025024	001413				    .ielse		beq %x63
+	025026	120127	000000			  cmpb r1,#%tntbn
+					  if eq,<
+					    call telsdo		;send a do
+					    bis #<.tnfwa+.tnfdo>_.tntbn,$cptnm(r5)
+					    exitl
+						    >
+					
+						  call telsdnt		;whatever it is, don't do it
+	025050	004767	000234			jsr pc,telsdnt
+						  
+		025054				  %x63===.		; exit to here
+		000000				%level===%level-1
+						jcall tellfn		;logically finished
+	025054	000167	177574			jmp tellfn
+					
+					telwnt:	call telwti
+	025060	004767	177562			jsr pc,telwti
+					loop <
+					  cmpb r1,#%tneco
+					  if eq,<
+					    bit #.tnfwa_.tneco,$cptnm(r5)
+					    if ne,<call telsdnt>	;send back a don't
+					    bic #<.tnfwa+.tnfdo>_.tneco,$cptnm(r5)
+					    exitl
+					    >
+					  cmpb r1,#%tntbn
+					  if eq,<
+					    call telsdnt	;send back a don't
+					    bic #<.tnfwa+.tnfdo>_.tntbn,$cptnm(r5)
+					    exitl
+					    >
+						  >
+		000064				%loopn===%loopn+1
+		170065				.if gt  %loopn-7777
+						 .error Too many loops (maximum of 4095)
+						 .mexit
+						 .endc
+		000001				%level===%level+1
+		177772				.if gt  %level-7
+						 .error Loop depth exceeds 7
+						 .mexit
+						 .endc
+						.irp n,\%level
+						  %y'n===%loopn
+						  .endm
+		000064				  %y1===%loopn
+						.irp n,\%loopn
+						  %l'n===.		; loop back to here
+						  
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 435
+	MINSRC:COMPRO PALX	Page 5.45 	Command Processor
+
+						  cmpb r1,#%tneco
+						  if eq,<
+						    bit #.tnfwa_.tneco,$cptnm(r5)
+						    if ne,<call telsdnt>	;send back a don't
+						    bic #<.tnfwa+.tnfdo>_.tneco,$cptnm(r5)
+						    exitl
+						    >
+						  cmpb r1,#%tntbn
+						  if eq,<
+						    call telsdnt	;send back a don't
+						    bic #<.tnfwa+.tnfdo>_.tntbn,$cptnm(r5)
+						    exitl
+						    >
+						  
+						  %x'n===.		; exit to here
+						  .endm
+		025064				  %l64===.		; loop back to here
+						  
+	025064	120127	000001			  cmpb r1,#%tneco
+					  if eq,<
+					    bit #.tnfwa_.tneco,$cptnm(r5)
+					    if ne,<call telsdnt>	;send back a don't
+					    bic #<.tnfwa+.tnfdo>_.tneco,$cptnm(r5)
+					    exitl
+						    >
+	025116	120127	000000			  cmpb r1,#%tntbn
+					  if eq,<
+					    call telsdnt	;send back a don't
+					    bic #<.tnfwa+.tnfdo>_.tntbn,$cptnm(r5)
+					    exitl
+						    >
+						  
+		025140				  %x64===.		; exit to here
+		000000				%level===%level-1
+						jcall tellfn
+	025140	000167	177510			jmp tellfn
+					
+					teldo:	call telwti
+	025144	004767	177476			jsr pc,telwti
+					loop <
+					  cmpb r1,#%tnsga
+					  if eq,<
+					    bis #.tnldo_.tnsga,$cptnm(r5)
+					    exitl
+					    >
+					  cmpb r1,#%tntbn
+					  if eq,<
+					    call telswil
+					    bis #<.tnlwa+.tnldo>_.tntbn,$cptnm(r5)
+					    exitl
+					    >
+					  cmpb r1,#%tntmk
+					  if eq,<
+					    call telswil
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 436
+	MINSRC:COMPRO PALX	Page 5.46 	Command Processor
+
+					    exitl
+					    >
+					  cmpb r1,#%tnloc	;terminal location
+					  if eq,<
+					    call tnsloc		;send the location
+					    exitl
+					    >
+				
+					  call telswnt		;whatever it is, I won't do it
+						  >
+		000065				%loopn===%loopn+1
+		170066				.if gt  %loopn-7777
+						 .error Too many loops (maximum of 4095)
+						 .mexit
+						 .endc
+		000001				%level===%level+1
+		177772				.if gt  %level-7
+						 .error Loop depth exceeds 7
+						 .mexit
+						 .endc
+						.irp n,\%level
+						  %y'n===%loopn
+						  .endm
+		000065				  %y1===%loopn
+						.irp n,\%loopn
+						  %l'n===.		; loop back to here
+						  
+						  cmpb r1,#%tnsga
+						  if eq,<
+						    bis #.tnldo_.tnsga,$cptnm(r5)
+						    exitl
+						    >
+						  cmpb r1,#%tntbn
+						  if eq,<
+						    call telswil
+						    bis #<.tnlwa+.tnldo>_.tntbn,$cptnm(r5)
+						    exitl
+						    >
+						  cmpb r1,#%tntmk
+						  if eq,<
+						    call telswil
+						    exitl
+						    >
+						  cmpb r1,#%tnloc	;terminal location
+						  if eq,<
+						    call tnsloc		;send the location
+						    exitl
+						    >
+					
+						  call telswnt		;whatever it is, I won't do it
+						  
+						  %x'n===.		; exit to here
+						  .endm
+		025150				  %l65===.		; loop back to here
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 437
+	MINSRC:COMPRO PALX	Page 5.47 	Command Processor
+
+						  
+	025150	120127	000003			  cmpb r1,#%tnsga
+					  if eq,<
+					    bis #.tnldo_.tnsga,$cptnm(r5)
+					    exitl
+						    >
+	025166	120127	000000			  cmpb r1,#%tntbn
+					  if eq,<
+					    call telswil
+					    bis #<.tnlwa+.tnldo>_.tntbn,$cptnm(r5)
+					    exitl
+						    >
+	025210	120127	000006			  cmpb r1,#%tntmk
+					  if eq,<
+					    call telswil
+					    exitl
+						    >
+	025224	120127	000027			  cmpb r1,#%tnloc	;terminal location
+					  if eq,<
+					    call tnsloc		;send the location
+					    exitl
+						    >
+					
+						  call telswnt		;whatever it is, I won't do it
+	025240	004767	000060			jsr pc,telswnt
+						  
+		025244				  %x65===.		; exit to here
+		000000				%level===%level-1
+						jcall tellfn
+	025244	000167	177404			jmp tellfn
+					
+					teldnt:	call telwti
+	025250	004767	177372			jsr pc,telwti
+					loop <
+					  cmpb r1,#%tntbn
+					  if eq,<
+					    call telswnt
+					    bic #<.tnlwa+.tnldo>_.tntbn,$cptnm(r5)
+					    exitl
+					    >
+						  >
+		000066				%loopn===%loopn+1
+		170067				.if gt  %loopn-7777
+						 .error Too many loops (maximum of 4095)
+						 .mexit
+						 .endc
+		000001				%level===%level+1
+		177772				.if gt  %level-7
+						 .error Loop depth exceeds 7
+						 .mexit
+						 .endc
+						.irp n,\%level
+						  %y'n===%loopn
+						  .endm
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 438
+	MINSRC:COMPRO PALX	Page 5.48 	Command Processor
+
+		000066				  %y1===%loopn
+						.irp n,\%loopn
+						  %l'n===.		; loop back to here
+						  
+						  cmpb r1,#%tntbn
+						  if eq,<
+						    call telswnt
+						    bic #<.tnlwa+.tnldo>_.tntbn,$cptnm(r5)
+						    exitl
+						    >
+						  
+						  %x'n===.		; exit to here
+						  .endm
+		025254				  %l66===.		; loop back to here
+						  
+	025254	120127	000000			  cmpb r1,#%tntbn
+					  if eq,<
+					    call telswnt
+					    bic #<.tnlwa+.tnldo>_.tntbn,$cptnm(r5)
+					    exitl
+						    >
+						  
+		025276				  %x66===.		; exit to here
+		000000				%level===%level-1
+						jcall tellfn
+	025276	000167	177352			jmp tellfn
+					
+				  loop <
+				telsdo:	push #%tndo
+					exitl
+				telsdnt:
+					push #%tndnt
+					exitl
+				telswil:
+					push #%tnwil
+					exitl
+				telswnt:
+					push #%tnwnt
+					  >
+		000067				%loopn===%loopn+1
+		170070				.if gt  %loopn-7777
+						 .error Too many loops (maximum of 4095)
+						 .mexit
+						 .endc
+		000001				%level===%level+1
+		177772				.if gt  %level-7
+						 .error Loop depth exceeds 7
+						 .mexit
+						 .endc
+						.irp n,\%level
+						  %y'n===%loopn
+						  .endm
+		000067				  %y1===%loopn
+						.irp n,\%loopn
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 439
+	MINSRC:COMPRO PALX	Page 5.49 	Command Processor
+
+						  %l'n===.		; loop back to here
+						  
+					telsdo:	push #%tndo
+						exitl
+					telsdnt:
+						push #%tndnt
+						exitl
+					telswil:
+						push #%tnwil
+						exitl
+					telswnt:
+						push #%tnwnt
+					  
+						  %x'n===.		; exit to here
+						  .endm
+		025302				  %l67===.		; loop back to here
+						  
+					telsdo:	push #%tndo
+						exitl
+		000001				.if eq  %level
+						 .error EXITL not inside LOOP
+						 .mexit
+						 .endc
+						.irp n1,\%level
+						  .irp n2,\%y'n1
+						    .iif b  ,	br %x'n2
+						    .ielse		b %x'n2
+						    .endm
+						  .endm
+						  .irp n2,\%y1
+						    .iif b  ,	br %x'n2
+						    .ielse		b %x'n2
+						    .endm
+	025306	000410				    .iif b  ,	br %x67
+						    .ielse		b %x67
+					telsdnt:
+						push #%tndnt
+						exitl
+		000001				.if eq  %level
+						 .error EXITL not inside LOOP
+						 .mexit
+						 .endc
+						.irp n1,\%level
+						  .irp n2,\%y'n1
+						    .iif b  ,	br %x'n2
+						    .ielse		b %x'n2
+						    .endm
+						  .endm
+						  .irp n2,\%y1
+						    .iif b  ,	br %x'n2
+						    .ielse		b %x'n2
+						    .endm
+	025314	000405				    .iif b  ,	br %x67
+						    .ielse		b %x67
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 440
+	MINSRC:COMPRO PALX	Page 5.50 	Command Processor
+
+					telswil:
+						push #%tnwil
+						exitl
+		000001				.if eq  %level
+						 .error EXITL not inside LOOP
+						 .mexit
+						 .endc
+						.irp n1,\%level
+						  .irp n2,\%y'n1
+						    .iif b  ,	br %x'n2
+						    .ielse		b %x'n2
+						    .endm
+						  .endm
+						  .irp n2,\%y1
+						    .iif b  ,	br %x'n2
+						    .ielse		b %x'n2
+						    .endm
+	025322	000402				    .iif b  ,	br %x67
+						    .ielse		b %x67
+					telswnt:
+						push #%tnwnt
+					  
+		025330				  %x67===.		; exit to here
+		000000				%level===%level-1
+						push r0,r1
+	025334	112701	000377			movb #%tniac,r1
+						call cp$hso
+	025340	004767	170750			jsr pc,cp$hso
+	025344	016601	000004			mov 4(sp),r1
+						call cp$hso
+	025350	004767	170740			jsr pc,cp$hso
+						pop r1
+						call cp$hso
+	025356	004767	170732			jsr pc,cp$hso
+						pop r0,*
+						return
+	025366	000207				rts pc
+					
+					tnsloc:				;send terminal location
+						push r0,r1,r2
+	025376	016500	000014			mov $cphso(r5),r0
+					if ne,<
+					  mov #10$,r1
+					  mov #3,r2
+					  .sout
+					  push r0
+					  .cnsget
+					  mov ttyloc(r0),r1
+					  pop r0
+					  .soutz
+					  mov #20$,r1
+					  mov #2,r2
+					  .sout
+						  >
+	Command Processor	PALX 2	 9-Aug-83 00:47:12	Page 441
+	MINSRC:COMPRO PALX	Page 5.51 	Command Processor
+
+						pop r2,r1,r0
+						return
+	025452	000207				rts pc
+					
+	025454	   377		
+	025455	   372		
+	025456	   027			10$:	.byte %tniac,%tnsb,%tnloc
+	025457	   377		
+	025460	   360			20$:	.byte %tniac,%tnse
+		025462				.even
+					
+					;;; local modes:
+					;;; mode:midas
+					;;; auto fill mode:
+					;;; fill column:75
+					;;; comment column:32
+					;;; end:
+  

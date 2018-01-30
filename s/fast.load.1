@@ -1,0 +1,20 @@
+r0=%0
+r1=%1
+r2=%2
+r4=%4
+.=157400
+foo:	mov #164140,r0		;CHAOS CSR
+	mov #164144,r4		;CHAOS read buffer
+	mov #20410,(r0)		;reset the entire board
+10$:	tst (r0)		;packet in??
+	bpl 10$			;wait until there is
+	cmp (r4),(r4)		;punt the CHAOS header...
+	cmp (r4),(r4)		;...all...
+	cmp (r4),(r4)		;...eight...
+	cmp (r4),(r4)		;...words
+	mov (r4),r1		;get first data word (address)
+	cmp r1,#153000		;is it in the stuff range?
+	blo foo			;no, go reset and try again
+	mov (r4),(r1)		;put the data in the location
+	br foo			;and loop
+.end

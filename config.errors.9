@@ -1,0 +1,211 @@
+What system are you assembling for?
+	 01 <==> NW16 TV system
+	 02 <==> bldg 38 TV system
+	 03 <==> bldg 38 old TV system (Grinnell)
+	 04 <==> NAP (Network Access port)
+	 05 <==> Versatec printing station
+	 10 <==> SIPB terminal concentrator
+	 11 <==> EECS moby bridge
+	 12 <==> EE Admin concentrator
+	 13 <==> EE Franky-Mouse concentrator
+	 14 <==> EE Admin concentrator (11/23)
+	 22 <==> AI CHAOS 11 (for testing DOVER server)
+	 23 <==> XX network 11
+	 24 <==> EE network 11
+	 25 <==> OZ network 11
+	 26 <==> SPEECH network 11
+	 27 <==> Paris network 11 (Centre Net 11)
+	 31 <==> AI Lab NE43-9A-HUB
+	 32 <==> AI Lab NE43-3A-HUB
+	 33 <==> AI Lab NE43-7A-HUB
+	 34 <==> AI Lab NE43-8A-HUB
+	 35 <==> AI Lab NE43-7B-HUB
+	 36 <==> New AI TV system
+	 37 <==> AI Bridge 1
+	 40 <==> NW16 test system
+	 41 <==> 38 test system
+	 42 <==> PLASMA (Chaos, Gould, CAMAC)
+	 43 <==> SPEECH-TIP-1
+	 50 <==> SIPB test gateway
+	 51 <==> EECS test system
+	 52 <==> EE-40 test system
+	 60 <==> Symbolics Front End PDP-11/34
+	 61 <==> Symbolics terminal concentrator #1
+	 62 <==> Symbolics terminal concentrator #2
+	 63 <==> Symbolics Longfellow Bridge
+	 64 <==> Symbolics Hyper Bridge (Tacoma Narrows)
+	 65 <==> Symbolics microwave bridge
+	 66 <==> Symbolics Palo Alto PDP-11 bridge
+	 67 <==> Symbolics Chatsworth PDP-11 bridge
+	 71 <==> RTS-TIP-1
+	 72 <==> RTS-TIP-2
+	 73 <==> RTS-TIP-3
+	 74 <==> RTS-TIP-4
+	 75 <==> RTS-TIP-5
+	101 <==> Yale CS NFE
+	102 <==> Yale RES NFE
+	107 <==> Yale Chaos/Ether Bridge
+	110 <==> ArcMac terminal concentrator
+	111 <==> Infinite corridor 17-21 bridge
+	120 <==> UTexas-NFE
+	xyzzy <==>	System xyzzy (template)
+:::  FILE	MINSRC:CHSNCP PALX
+		0	41-28	Bad character in expression
+	000000	000000				chscnm ^"ex",cxex
+		2	41-29	Bad character in expression
+	000002	000000				chscnm ^"dp",cxdp
+FILE	MINSRC:CHSNCP PALX
+		12	42-3	CXRTIM	Out of phase
+CXRTIM+60	72	42-68	CXTIME	Out of phase
+CXTIME+36	130	42-68	CXUPTI	Out of phase
+CXUPTI+6	136	42-68	TIME	Undefined
+CXUPTI+14	144	42-68	TIME	Undefined
+CXUPTI+54	204	42-100	CXEX	Out of phase
+CXEX+30		234	42-100	CXEX/10$	Out of phase
+CXEX/10$+16	252	42-100	CXDP	Out of phase
+CXDP+30		302	42-100	CXDP/10$	Out of phase
+CXDP/10$+26	330	42-105	CXDUMP	Out of phase
+CXDUMP+114	444	43-4	CXSTAT	Out of phase
+CXSTAT+234	700	44-27	CX.SRV	Out of phase
+CX.SRV+62	762	45-4	CXSINK	Out of phase
+CXSINK+22	1004	45-6	CXSINK/100$	Out of phase
+CXSINK/100$+56	1062	45-22	CXSOUR	Out of phase
+CXSOUR+22	1104	45-24	CXSOUR/100$	Out of phase
+CXSOUR/100$+114	1220	45-57	CXDIAL	Out of phase
+CXDIAL+24	1244	45-61	CXDIAL/100$	Out of phase
+CXDIAL/100$+6	1252	45-67	CXDIAL/110$	Out of phase
+CXDIAL/110$+154	1426	45-114	CXECHO	Out of phase
+CXECHO+22	1450	45-118	CXECHO/100$	Out of phase
+CXECHO/100$+6	1456	45-124	CXECHO/110$	Out of phase
+CXECHO/110$+70	1546	46-20	CXREEC	Out of phase
+CXREEC+32	1600	46-27	CXSUPD	Out of phase
+CXSUPD+32	1632	46-36	CXGATE	Out of phase
+CXGATE+22	1654	46-53	CXGATE/110$	Out of phase
+CXGATE/110$+422	2276	47-3	CXRELO	Out of phase
+FILE	MINSRC:UUO PALX
+EMTTB1+12	5350	1-32	$CHINT	Undefined
+EMTTBL+22	5414	1-50	$CCNMK	Undefined
+FILE	MINSRC:TTY PALX
+PRTMV1		14054	12-17	FOO	Undefined
+T61DCP		14420	14-8	FOO	Undefined
+H19DCP		14506	15-26	FOO	Undefined
+FILE	MINSRC:COMPRO PALX
+HAKCON+44	21760	5-76	OPNCHA	Undefined
+TTYLN2		22620	5-226	OPNCHA	Undefined
+RFINGE+44	23040	5-263	OPNCHA	Undefined
+TELNET+44	23320	5-313	OPNCHA	Undefined
+FILE	MINSRC:CHSNCP PALX
+CNPINI+170	41576	30-62	CNPSTR	Undefined
+CHTCNT+50	44010	41-25	STR146	Undefined
+CHTCNT+54	44014	41-26	STR147	Undefined
+FILE	MINSRC:MINITS PALX
+STR100+4	44044	8-8	STR101	Out of phase
+STR101+4	44050	8-8	STR102	Out of phase
+STR102+6	44056	8-8	STR103	Out of phase
+STR103+10	44066	8-8	STR104	Out of phase
+STR104+22	44110	8-8	STR105	Out of phase
+STR105+20	44130	8-8	STR106	Out of phase
+STR106+24	44154	8-8	STR107	Out of phase
+STR107+32	44206	8-8	STR110	Out of phase
+STR110+32	44240	8-8	STR111	Out of phase
+STR111+32	44272	8-8	STR112	Out of phase
+STR112+32	44324	8-8	STR113	Out of phase
+STR113+20	44344	8-8	STR114	Out of phase
+STR114+20	44364	8-8	STR115	Out of phase
+STR115+34	44420	8-8	STR116	Out of phase
+STR116+20	44440	8-8	STR117	Out of phase
+STR117+20	44460	8-8	STR120	Out of phase
+STR120+20	44500	8-8	STR121	Out of phase
+STR121+34	44534	8-8	STR122	Out of phase
+STR122+24	44560	8-8	STR123	Out of phase
+STR123+24	44604	8-8	STR124	Out of phase
+STR124+24	44630	8-8	STR125	Out of phase
+STR125+24	44654	8-8	LIT100	Out of phase
+LIT100+32	44706	8-8	LIT101	Out of phase
+LIT101+44	44752	8-8	LIT102	Out of phase
+LIT102+76	45050	8-8	STR126	Out of phase
+STR126+10	45060	8-8	STR127	Out of phase
+STR127+6	45066	8-8	STR130	Out of phase
+STR130+12	45100	8-8	LIT103	Out of phase
+LIT103+64	45164	8-8	STR131	Out of phase
+STR131+10	45174	8-8	STR132	Out of phase
+STR132+6	45202	8-8	STR133	Out of phase
+STR133+10	45212	8-8	LIT104	Out of phase
+LIT104+12	45224	8-8	STR134	Out of phase
+STR134+10	45234	8-8	STR135	Out of phase
+STR135+6	45242	8-8	STR136	Out of phase
+STR136+22	45264	8-8	STR137	Out of phase
+STR137+10	45274	8-8	STR140	Out of phase
+STR140+6	45302	8-8	STR141	Out of phase
+STR141+10	45312	8-8	STR142	Out of phase
+STR142+6	45320	8-8	STR143	Out of phase
+STR143+10	45330	8-8	STR144	Out of phase
+STR144+10	45340	8-8	STR145	Out of phase
+STR147+24	45404	8-8	CON..E	Out of phase
+CON..E		45404	8-9	VAR...	Out of phase
+VAR...		45404	8-10	$INTST	Out of phase
+$INTST+2	45406	8-10	NXMADR	Out of phase
+NXMADR+2	45410	8-10	OLD4	Out of phase
+OLD4+2		45412	8-10	OLD6	Out of phase
+OLD6+2		45414	8-10	CLOCK	Out of phase
+CLOCK+4		45420	8-10	ARPTIM	Out of phase
+ARPTIM+4	45424	8-10	ARP60T	Out of phase
+ARP60T+2	45426	8-10	L2RQST	Out of phase
+L2RQST+2	45430	8-10	LKISUP	Out of phase
+LKISUP+2	45432	8-10	JUNK	Out of phase
+JUNK+2		45434	8-10	FSMLOW	Out of phase
+FSMLOW+2	45436	8-10	FSMHIG	Out of phase
+FSMHIG+2	45440	8-10	FSMALC	Out of phase
+FSMALC+2	45442	8-10	FSMFRC	Out of phase
+FSMFRC+2	45444	8-10	FSMAVA	Out of phase
+FSMAVA+6	45452	8-10	ULINK	Out of phase
+ULINK+4		45456	8-10	SYSJOB	Out of phase
+SYSJOB+140	45616	8-10	USRNOW	Out of phase
+USRNOW+2	45620	8-10	SYSKIK	Out of phase
+SYSKIK+2	45622	8-10	SYSTM1	Out of phase
+SYSTM1+2	45624	8-10	SYSTM2	Out of phase
+SYSTM2+2	45626	8-10	SYSUP	Out of phase
+SYSUP+2		45630	8-10	TTYRDV	Out of phase
+TTYRDV+44	45674	8-10	TTYXDV	Out of phase
+TTYXDV+44	45740	8-10	TTYLOC	Out of phase
+TTYLOC+44	46004	8-10	TTYTYP	Out of phase
+TTYTYP+44	46050	8-10	TTYMXV	Out of phase
+TTYMXV+44	46114	8-10	TTYROL	Out of phase
+TTYROL+44	46160	8-10	TTYOP1	Out of phase
+TTYOP1+44	46224	8-10	TTYOP2	Out of phase
+TTYOP2+44	46270	8-10	TTYOP3	Out of phase
+TTYOP3+44	46334	8-10	TTYSM1	Out of phase
+TTYSM1+44	46400	8-10	TTYSM2	Out of phase
+TTYSM2+44	46444	8-10	TTYSM3	Out of phase
+TTYSM3+44	46510	8-10	TTYIST	Out of phase
+TTYIST+44	46554	8-10	TTYSPD	Out of phase
+TTYSPD+44	46620	8-10	TTYOWN	Out of phase
+TTYOWN+44	46664	8-10	DL$RDV	Out of phase
+DL$RDV+34	46720	8-10	DL$XDV	Out of phase
+DL$XDV+34	46754	8-10	NETOBJ	Out of phase
+NETOBJ+2	46756	8-10	RLDTIM	Out of phase
+RLDTIM+2	46760	8-10	CHVUNI	Out of phase
+CHVUNI+2	46762	8-10	CHTCON	Out of phase
+CHTCON+64	47046	8-10	CHVMYN	Out of phase
+CHVMYN+2	47050	8-10	CHVNUP	Out of phase
+CHVNUP+2	47052	8-10	CHTROU	Out of phase
+CHTROU+200	47252	8-10	CHTCST	Out of phase
+CHTCST+200	47452	8-10	CNVIPQ	Out of phase
+CNVIPQ+2	47454	8-10	CNVIPE	Out of phase
+CNVIPE+2	47456	8-10	CHTTIM	Out of phase
+CHTTIM+54	47532	8-10	CHVTIM	Out of phase
+CHVTIM+10	47542	8-10	VAR..E	Out of phase
+VAR..E		47542	8-12	PATCH	Out of phase
+PATCH		47542	8-12	.PAT	Out of phase
+.PAT+20		47562	8-15	FS$BEG	Out of phase
+
+Constants area from 44040 to 45404
+Variables area from 45404 to 47542
+Patch     area from 47542 to 47562
+Free Stor area from 47562 to 160000 = 22 (octal) K
+
+140 Errors Detected
+
+1.6 Words Average Instruction Length
+
+81 Seconds Runtime

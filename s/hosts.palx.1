@@ -1,0 +1,45 @@
+;;; This is the host table and documentation for the MINITS command processor.
+;;; It is in a separate file so that it can be changed without affecting
+;;;   the rest of the command processor.
+;;; Written by C. Hornig, May 1983.
+
+
+.macro	comdoc
+.ascii /   0 MIT-MC      7  MIT-VX      14  MIT-OZ        21  MIT-HTVAX/<%tdcrl>
+.ascii /   1 MIT-PREP    8  SCRC-TENEX  15  SCRC-Comet    22  SCRC-CUPID/<%tdcrl>
+.ascii /   2 MIT-EE      9  MIT-Multics 16  MIT-EDDIE     23  SCH-COYOTE/<%tdcrl>
+.ascii /   3 MIT-SPEECH 10  MIT-CCC     17  MIT-Pygmalion 24  MIT-Hephaestus/<%tdcrl>
+.ascii /   4 MIT-XX     11  MIT-RTS     18  MIT-Corwin    25  MIT-Talos/<%tdcrl>
+.ascii /   5 MIT-Math   12  SCRC-VIXEN  19  MIT-HTJR	  26  MIT-Heart-of-Gold/<%tdcrl>
+.ascii /   6 MIT-ML     13  MIT-PFC-VAX 20  MIT-Oberon/<%tdcrl>
+.endm
+
+hstlst:
+	    001440		;00 mc
+	    003143		;01 MIT-PREP
+	    005542		;02 ee
+	    012035		;03 speech
+	    002420		;04 xx
+	    007770		;05 math
+	    003114		;06 ml
+	    003120		;07 VX
+	    017402		;08 SCRC
+	    016050		;09 CMUL
+	    016310		;10 CCC
+	    000470		;11 RTS-11/70
+	    024432		;12 SCRC-VIXEN
+	    003631		;13 PFC-VAX
+	    011406		;14 OZ
+	    017020		;15 Comet
+	    003404		;16 Eddie
+	    013060		;17 Pygmalion
+	    003035		;18 Corwin
+	    003067		;19 HTJR
+	    003043		;20 Oberon
+	    003025		;21 HTVAX
+	    017030		;22 SCRC-CUPID
+	    022405		;23 SCH-COYOTE
+	    003152		;24 Hephaestus
+	    003156		;25 Talos
+	    016142		;26 Heart-of-gold
+		l$hstlst==.-hstlst
